@@ -1,0 +1,363 @@
+:root {
+  --bg: #0f1626;
+  --panel: #18233a;
+  --panel-2: #1f2c47;
+  --line: #2c3a5a;
+  --text: #e7edf7;
+  --muted: #9fb0cc;
+  --accent: #2f7df6;
+  --accent-2: #36c08a;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  width: 100vw;
+}
+
+/* ---- Toolbar ---- */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  z-index: 10;
+}
+
+.toolbar .group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-right: 8px;
+  border-right: 1px solid var(--line);
+}
+
+.toolbar .group:last-of-type {
+  border-right: none;
+}
+
+.toolbar label {
+  color: var(--muted);
+  font-size: 13px;
+  margin-right: 2px;
+}
+
+.toolbar .spacer {
+  flex: 1;
+  border: none;
+}
+
+.toolbar button,
+.palette .tabs button {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 7px 11px;
+  font-size: 13px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.toolbar button:hover {
+  border-color: var(--accent);
+}
+
+.toolbar button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.toolbar button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.toolbar .modes button .icon {
+  font-size: 15px;
+}
+
+.toolbar select,
+.toolbar input {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
+.toolbar .export {
+  background: var(--accent-2);
+  border-color: var(--accent-2);
+  color: #04211a;
+  font-weight: 700;
+}
+
+/* ---- Main row ---- */
+.main {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.canvas-wrap {
+  flex: 1;
+  position: relative;
+  min-width: 0;
+}
+
+/* ---- Palette ---- */
+.palette {
+  width: 240px;
+  flex-shrink: 0;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.palette-hint {
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+  border-bottom: 1px solid var(--line);
+}
+
+.palette .tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.palette .tabs button {
+  padding: 5px 8px;
+  font-size: 12px;
+}
+
+.palette .tabs button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.palette .grid {
+  flex: 1;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 10px;
+}
+
+.thumb {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 6px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+}
+
+.thumb img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: contain;
+  background: #fff;
+  border-radius: 6px;
+}
+
+.thumb span {
+  font-size: 10.5px;
+  text-align: center;
+  line-height: 1.2;
+  word-break: break-word;
+}
+
+.thumb:hover {
+  border-color: var(--accent);
+}
+
+.thumb.active {
+  border-color: var(--accent-2);
+  box-shadow: 0 0 0 2px var(--accent-2) inset;
+  color: var(--text);
+}
+
+/* ---- Floor strip (left elevator) ---- */
+.floorstrip {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 5;
+  user-select: none;
+}
+
+.floorstrip button {
+  width: 44px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(24, 35, 58, 0.82);
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+}
+
+.floorstrip .floor-btn.filled {
+  color: var(--text);
+  background: rgba(31, 44, 71, 0.92);
+}
+
+.floorstrip .floor-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.floorstrip .floor-add {
+  color: var(--accent-2);
+  font-size: 20px;
+  line-height: 1;
+  height: 34px;
+}
+
+.floorstrip button:hover {
+  border-color: var(--accent);
+}
+
+/* ---- Nav widget (camera zoom/home) ---- */
+.navwidget {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 6;
+}
+
+.navwidget button {
+  width: 38px;
+  height: 38px;
+  border-radius: 9px;
+  border: 1px solid var(--line);
+  background: rgba(24, 35, 58, 0.85);
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+}
+
+.navwidget button:hover {
+  border-color: var(--accent);
+}
+
+/* ---- Draw-mode banner ---- */
+.draw-banner {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(47, 125, 246, 0.92);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(4px);
+}
+
+.draw-banner.erase {
+  background: rgba(246, 73, 47, 0.92);
+}
+
+.draw-banner button {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.draw-banner button:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+/* ---- Hint bar ---- */
+.hint {
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--panel);
+  border-top: 1px solid var(--line);
+  text-align: center;
+}
+
+.hint b {
+  color: var(--text);
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--muted);
+  font-size: 15px;
+  text-align: center;
+  line-height: 1.8;
+}
+
+code {
+  background: var(--panel-2);
+  padding: 2px 6px;
+  border-radius: 5px;
+}

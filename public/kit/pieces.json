@@ -1,0 +1,1345 @@
+[
+  {
+    "id": "barricade-doorway-a",
+    "name": "Barricade Doorway A",
+    "glb": "/kit/models/barricade-doorway-a.glb",
+    "preview": "/kit/previews/barricade-doorway-a.png",
+    "category": "structure",
+    "size": [
+      0.075,
+      1.46,
+      1.256
+    ],
+    "center": [
+      -0.038,
+      0.315,
+      0
+    ]
+  },
+  {
+    "id": "barricade-doorway-b",
+    "name": "Barricade Doorway B",
+    "glb": "/kit/models/barricade-doorway-b.glb",
+    "preview": "/kit/previews/barricade-doorway-b.png",
+    "category": "structure",
+    "size": [
+      0.075,
+      1.583,
+      1.256
+    ],
+    "center": [
+      -0.038,
+      0.304,
+      0
+    ]
+  },
+  {
+    "id": "barricade-doorway-c",
+    "name": "Barricade Doorway C",
+    "glb": "/kit/models/barricade-doorway-c.glb",
+    "preview": "/kit/previews/barricade-doorway-c.png",
+    "category": "structure",
+    "size": [
+      0.1,
+      1.747,
+      1.256
+    ],
+    "center": [
+      -0.05,
+      0.308,
+      0
+    ]
+  },
+  {
+    "id": "barricade-window-a",
+    "name": "Barricade Window A",
+    "glb": "/kit/models/barricade-window-a.glb",
+    "preview": "/kit/previews/barricade-window-a.png",
+    "category": "structure",
+    "size": [
+      0.075,
+      0.96,
+      1.256
+    ],
+    "center": [
+      -0.038,
+      0.565,
+      0
+    ]
+  },
+  {
+    "id": "barricade-window-b",
+    "name": "Barricade Window B",
+    "glb": "/kit/models/barricade-window-b.glb",
+    "preview": "/kit/previews/barricade-window-b.png",
+    "category": "structure",
+    "size": [
+      0.075,
+      1.083,
+      1.256
+    ],
+    "center": [
+      -0.038,
+      0.554,
+      0
+    ]
+  },
+  {
+    "id": "barricade-window-c",
+    "name": "Barricade Window C",
+    "glb": "/kit/models/barricade-window-c.glb",
+    "preview": "/kit/previews/barricade-window-c.png",
+    "category": "structure",
+    "size": [
+      0.1,
+      1.356,
+      1.256
+    ],
+    "center": [
+      -0.05,
+      0.552,
+      0
+    ]
+  },
+  {
+    "id": "border",
+    "name": "Border",
+    "glb": "/kit/models/border.glb",
+    "preview": "/kit/previews/border.png",
+    "category": "structure",
+    "size": [
+      0.2,
+      0.3,
+      2
+    ],
+    "center": [
+      0.15,
+      0.15,
+      0
+    ]
+  },
+  {
+    "id": "border-corner",
+    "name": "Border Corner",
+    "glb": "/kit/models/border-corner.glb",
+    "preview": "/kit/previews/border-corner.png",
+    "category": "structure",
+    "size": [
+      2.2,
+      0.3,
+      2.2
+    ],
+    "center": [
+      0.1,
+      0.15,
+      0.1
+    ]
+  },
+  {
+    "id": "border-corner-diagonal",
+    "name": "Border Corner Diagonal",
+    "glb": "/kit/models/border-corner-diagonal.glb",
+    "preview": "/kit/previews/border-corner-diagonal.png",
+    "category": "structure",
+    "size": [
+      2.2,
+      0.3,
+      2.2
+    ],
+    "center": [
+      0.1,
+      0.15,
+      0.1
+    ]
+  },
+  {
+    "id": "border-corner-round",
+    "name": "Border Corner Round",
+    "glb": "/kit/models/border-corner-round.glb",
+    "preview": "/kit/previews/border-corner-round.png",
+    "category": "structure",
+    "size": [
+      2.2,
+      0.3,
+      2.2
+    ],
+    "center": [
+      0.1,
+      0.15,
+      0.1
+    ]
+  },
+  {
+    "id": "border-corner-small",
+    "name": "Border Corner Small",
+    "glb": "/kit/models/border-corner-small.glb",
+    "preview": "/kit/previews/border-corner-small.png",
+    "category": "structure",
+    "size": [
+      1.2,
+      0.3,
+      1.2
+    ],
+    "center": [
+      0.6,
+      0.15,
+      0.6
+    ]
+  },
+  {
+    "id": "border-high",
+    "name": "Border High",
+    "glb": "/kit/models/border-high.glb",
+    "preview": "/kit/previews/border-high.png",
+    "category": "structure",
+    "size": [
+      0.2,
+      0.5,
+      2
+    ],
+    "center": [
+      0.15,
+      0.25,
+      0
+    ]
+  },
+  {
+    "id": "border-high-corner",
+    "name": "Border High Corner",
+    "glb": "/kit/models/border-high-corner.glb",
+    "preview": "/kit/previews/border-high-corner.png",
+    "category": "structure",
+    "size": [
+      2.2,
+      0.5,
+      2.2
+    ],
+    "center": [
+      0.1,
+      0.25,
+      0.1
+    ]
+  },
+  {
+    "id": "border-high-corner-diagonal",
+    "name": "Border High Corner Diagonal",
+    "glb": "/kit/models/border-high-corner-diagonal.glb",
+    "preview": "/kit/previews/border-high-corner-diagonal.png",
+    "category": "structure",
+    "size": [
+      2.2,
+      0.5,
+      2.2
+    ],
+    "center": [
+      0.1,
+      0.25,
+      0.1
+    ]
+  },
+  {
+    "id": "border-high-corner-round",
+    "name": "Border High Corner Round",
+    "glb": "/kit/models/border-high-corner-round.glb",
+    "preview": "/kit/previews/border-high-corner-round.png",
+    "category": "structure",
+    "size": [
+      2.2,
+      0.5,
+      2.2
+    ],
+    "center": [
+      0.1,
+      0.25,
+      0.1
+    ]
+  },
+  {
+    "id": "border-high-corner-small",
+    "name": "Border High Corner Small",
+    "glb": "/kit/models/border-high-corner-small.glb",
+    "preview": "/kit/previews/border-high-corner-small.png",
+    "category": "structure",
+    "size": [
+      1.2,
+      0.5,
+      1.2
+    ],
+    "center": [
+      0.6,
+      0.25,
+      0.6
+    ]
+  },
+  {
+    "id": "column",
+    "name": "Column",
+    "glb": "/kit/models/column.glb",
+    "preview": "/kit/previews/column.png",
+    "category": "structure",
+    "size": [
+      0.5,
+      2.4,
+      0.5
+    ],
+    "center": [
+      0,
+      1.2,
+      0
+    ]
+  },
+  {
+    "id": "column-thin",
+    "name": "Column Thin",
+    "glb": "/kit/models/column-thin.glb",
+    "preview": "/kit/previews/column-thin.png",
+    "category": "structure",
+    "size": [
+      0.4,
+      2.4,
+      0.4
+    ],
+    "center": [
+      0,
+      1.2,
+      0
+    ]
+  },
+  {
+    "id": "column-wide",
+    "name": "Column Wide",
+    "glb": "/kit/models/column-wide.glb",
+    "preview": "/kit/previews/column-wide.png",
+    "category": "structure",
+    "size": [
+      0.7,
+      2.4,
+      0.7
+    ],
+    "center": [
+      0,
+      1.2,
+      0
+    ]
+  },
+  {
+    "id": "detail-pipe",
+    "name": "Detail Pipe",
+    "glb": "/kit/models/detail-pipe.glb",
+    "preview": "/kit/previews/detail-pipe.png",
+    "category": "structure",
+    "size": [
+      0.434,
+      0.428,
+      0.434
+    ],
+    "center": [
+      0,
+      0.214,
+      0
+    ]
+  },
+  {
+    "id": "door-rotate-round-a",
+    "name": "Door Rotate Round A",
+    "glb": "/kit/models/door-rotate-round-a.glb",
+    "preview": "/kit/previews/door-rotate-round-a.png",
+    "category": "wall",
+    "size": [
+      0.25,
+      2.125,
+      1.025
+    ],
+    "center": [
+      0,
+      1.037,
+      0.387
+    ]
+  },
+  {
+    "id": "door-rotate-round-b",
+    "name": "Door Rotate Round B",
+    "glb": "/kit/models/door-rotate-round-b.glb",
+    "preview": "/kit/previews/door-rotate-round-b.png",
+    "category": "wall",
+    "size": [
+      0.25,
+      2.125,
+      1.025
+    ],
+    "center": [
+      0,
+      1.037,
+      0.387
+    ]
+  },
+  {
+    "id": "door-rotate-round-c",
+    "name": "Door Rotate Round C",
+    "glb": "/kit/models/door-rotate-round-c.glb",
+    "preview": "/kit/previews/door-rotate-round-c.png",
+    "category": "wall",
+    "size": [
+      0.25,
+      2.125,
+      1.025
+    ],
+    "center": [
+      0,
+      1.037,
+      0.387
+    ]
+  },
+  {
+    "id": "door-rotate-round-d",
+    "name": "Door Rotate Round D",
+    "glb": "/kit/models/door-rotate-round-d.glb",
+    "preview": "/kit/previews/door-rotate-round-d.png",
+    "category": "wall",
+    "size": [
+      0.25,
+      2.125,
+      1.025
+    ],
+    "center": [
+      0,
+      1.037,
+      0.387
+    ]
+  },
+  {
+    "id": "door-rotate-square-a",
+    "name": "Door Rotate Square A",
+    "glb": "/kit/models/door-rotate-square-a.glb",
+    "preview": "/kit/previews/door-rotate-square-a.png",
+    "category": "wall",
+    "size": [
+      0.25,
+      2.125,
+      1.025
+    ],
+    "center": [
+      0,
+      1.037,
+      0.387
+    ]
+  },
+  {
+    "id": "door-rotate-square-b",
+    "name": "Door Rotate Square B",
+    "glb": "/kit/models/door-rotate-square-b.glb",
+    "preview": "/kit/previews/door-rotate-square-b.png",
+    "category": "wall",
+    "size": [
+      0.25,
+      2.125,
+      1.025
+    ],
+    "center": [
+      0,
+      1.037,
+      0.387
+    ]
+  },
+  {
+    "id": "door-rotate-square-c",
+    "name": "Door Rotate Square C",
+    "glb": "/kit/models/door-rotate-square-c.glb",
+    "preview": "/kit/previews/door-rotate-square-c.png",
+    "category": "wall",
+    "size": [
+      0.25,
+      2.125,
+      1.025
+    ],
+    "center": [
+      0,
+      1.037,
+      0.387
+    ]
+  },
+  {
+    "id": "door-rotate-square-d",
+    "name": "Door Rotate Square D",
+    "glb": "/kit/models/door-rotate-square-d.glb",
+    "preview": "/kit/previews/door-rotate-square-d.png",
+    "category": "wall",
+    "size": [
+      0.25,
+      2.125,
+      1.025
+    ],
+    "center": [
+      0,
+      1.037,
+      0.387
+    ]
+  },
+  {
+    "id": "floor",
+    "name": "Floor",
+    "glb": "/kit/models/floor.glb",
+    "preview": "/kit/previews/floor.png",
+    "category": "floor",
+    "size": [
+      2,
+      0.1,
+      2
+    ],
+    "center": [
+      0,
+      0.05,
+      0
+    ]
+  },
+  {
+    "id": "floor-corner-diagonal",
+    "name": "Floor Corner Diagonal",
+    "glb": "/kit/models/floor-corner-diagonal.glb",
+    "preview": "/kit/previews/floor-corner-diagonal.png",
+    "category": "floor",
+    "size": [
+      2,
+      0.1,
+      2
+    ],
+    "center": [
+      0,
+      0.05,
+      0
+    ]
+  },
+  {
+    "id": "floor-corner-round",
+    "name": "Floor Corner Round",
+    "glb": "/kit/models/floor-corner-round.glb",
+    "preview": "/kit/previews/floor-corner-round.png",
+    "category": "floor",
+    "size": [
+      2,
+      0.1,
+      2
+    ],
+    "center": [
+      0,
+      0.05,
+      0
+    ]
+  },
+  {
+    "id": "floor-half",
+    "name": "Floor Half",
+    "glb": "/kit/models/floor-half.glb",
+    "preview": "/kit/previews/floor-half.png",
+    "category": "floor",
+    "size": [
+      1,
+      0.1,
+      2
+    ],
+    "center": [
+      0,
+      0.05,
+      0
+    ]
+  },
+  {
+    "id": "floor-quarter",
+    "name": "Floor Quarter",
+    "glb": "/kit/models/floor-quarter.glb",
+    "preview": "/kit/previews/floor-quarter.png",
+    "category": "floor",
+    "size": [
+      1,
+      0.1,
+      1
+    ],
+    "center": [
+      0,
+      0.05,
+      -0.5
+    ]
+  },
+  {
+    "id": "gutter-vertical",
+    "name": "Gutter Vertical",
+    "glb": "/kit/models/gutter-vertical.glb",
+    "preview": "/kit/previews/gutter-vertical.png",
+    "category": "structure",
+    "size": [
+      0.308,
+      2,
+      0.308
+    ],
+    "center": [
+      0,
+      1,
+      0
+    ]
+  },
+  {
+    "id": "gutter-vertical-bottom",
+    "name": "Gutter Vertical Bottom",
+    "glb": "/kit/models/gutter-vertical-bottom.glb",
+    "preview": "/kit/previews/gutter-vertical-bottom.png",
+    "category": "structure",
+    "size": [
+      0.2,
+      0.3,
+      0.3
+    ],
+    "center": [
+      0,
+      -0.15,
+      -0.05
+    ]
+  },
+  {
+    "id": "gutter-vertical-short",
+    "name": "Gutter Vertical Short",
+    "glb": "/kit/models/gutter-vertical-short.glb",
+    "preview": "/kit/previews/gutter-vertical-short.png",
+    "category": "structure",
+    "size": [
+      0.308,
+      1,
+      0.308
+    ],
+    "center": [
+      0,
+      0.5,
+      0
+    ]
+  },
+  {
+    "id": "gutter-vertical-top",
+    "name": "Gutter Vertical Top",
+    "glb": "/kit/models/gutter-vertical-top.glb",
+    "preview": "/kit/previews/gutter-vertical-top.png",
+    "category": "structure",
+    "size": [
+      0.2,
+      0.3,
+      0.3
+    ],
+    "center": [
+      0,
+      0.15,
+      0.05
+    ]
+  },
+  {
+    "id": "gutter-vertical-wall",
+    "name": "Gutter Vertical Wall",
+    "glb": "/kit/models/gutter-vertical-wall.glb",
+    "preview": "/kit/previews/gutter-vertical-wall.png",
+    "category": "structure",
+    "size": [
+      0.308,
+      2.4,
+      0.308
+    ],
+    "center": [
+      0,
+      1.2,
+      0
+    ]
+  },
+  {
+    "id": "plating",
+    "name": "Plating",
+    "glb": "/kit/models/plating.glb",
+    "preview": "/kit/previews/plating.png",
+    "category": "structure",
+    "size": [
+      0.1,
+      1,
+      1
+    ],
+    "center": [
+      0,
+      0.5,
+      -0.5
+    ]
+  },
+  {
+    "id": "plating-detailed",
+    "name": "Plating Detailed",
+    "glb": "/kit/models/plating-detailed.glb",
+    "preview": "/kit/previews/plating-detailed.png",
+    "category": "structure",
+    "size": [
+      0.125,
+      1,
+      1
+    ],
+    "center": [
+      -0.013,
+      0.5,
+      -0.5
+    ]
+  },
+  {
+    "id": "plating-detailed-wide",
+    "name": "Plating Detailed Wide",
+    "glb": "/kit/models/plating-detailed-wide.glb",
+    "preview": "/kit/previews/plating-detailed-wide.png",
+    "category": "structure",
+    "size": [
+      0.125,
+      1,
+      2
+    ],
+    "center": [
+      -0.013,
+      0.5,
+      0
+    ]
+  },
+  {
+    "id": "plating-wide",
+    "name": "Plating Wide",
+    "glb": "/kit/models/plating-wide.glb",
+    "preview": "/kit/previews/plating-wide.png",
+    "category": "structure",
+    "size": [
+      0.1,
+      1,
+      2
+    ],
+    "center": [
+      0,
+      0.5,
+      0
+    ]
+  },
+  {
+    "id": "roof-flat-center",
+    "name": "Roof Flat Center",
+    "glb": "/kit/models/roof-flat-center.glb",
+    "preview": "/kit/previews/roof-flat-center.png",
+    "category": "roof",
+    "size": [
+      2,
+      0.1,
+      2
+    ],
+    "center": [
+      0,
+      0.05,
+      0
+    ]
+  },
+  {
+    "id": "roof-flat-corner",
+    "name": "Roof Flat Corner",
+    "glb": "/kit/models/roof-flat-corner.glb",
+    "preview": "/kit/previews/roof-flat-corner.png",
+    "category": "roof",
+    "size": [
+      2.2,
+      0.4,
+      2.2
+    ],
+    "center": [
+      0.1,
+      0.2,
+      0.1
+    ]
+  },
+  {
+    "id": "roof-flat-corner-inner",
+    "name": "Roof Flat Corner Inner",
+    "glb": "/kit/models/roof-flat-corner-inner.glb",
+    "preview": "/kit/previews/roof-flat-corner-inner.png",
+    "category": "roof",
+    "size": [
+      2.2,
+      0.5,
+      2.2
+    ],
+    "center": [
+      0.1,
+      0.25,
+      0.1
+    ]
+  },
+  {
+    "id": "roof-flat-patch",
+    "name": "Roof Flat Patch",
+    "glb": "/kit/models/roof-flat-patch.glb",
+    "preview": "/kit/previews/roof-flat-patch.png",
+    "category": "roof",
+    "size": [
+      1.1,
+      0.05,
+      1.1
+    ],
+    "center": [
+      0,
+      0.025,
+      0
+    ]
+  },
+  {
+    "id": "roof-flat-patch-large",
+    "name": "Roof Flat Patch Large",
+    "glb": "/kit/models/roof-flat-patch-large.glb",
+    "preview": "/kit/previews/roof-flat-patch-large.png",
+    "category": "roof",
+    "size": [
+      1.6,
+      0.05,
+      1.6
+    ],
+    "center": [
+      0,
+      0.025,
+      0
+    ]
+  },
+  {
+    "id": "roof-flat-side",
+    "name": "Roof Flat Side",
+    "glb": "/kit/models/roof-flat-side.glb",
+    "preview": "/kit/previews/roof-flat-side.png",
+    "category": "roof",
+    "size": [
+      2.2,
+      0.4,
+      2
+    ],
+    "center": [
+      0.1,
+      0.2,
+      0
+    ]
+  },
+  {
+    "id": "roof-flat-square",
+    "name": "Roof Flat Square",
+    "glb": "/kit/models/roof-flat-square.glb",
+    "preview": "/kit/previews/roof-flat-square.png",
+    "category": "roof",
+    "size": [
+      2.395,
+      0.4,
+      2.395
+    ],
+    "center": [
+      0,
+      0.2,
+      0
+    ]
+  },
+  {
+    "id": "stairs-center",
+    "name": "Stairs Center",
+    "glb": "/kit/models/stairs-center.glb",
+    "preview": "/kit/previews/stairs-center.png",
+    "category": "stairs",
+    "size": [
+      1.3,
+      2.5,
+      4
+    ],
+    "center": [
+      0,
+      1.25,
+      0
+    ]
+  },
+  {
+    "id": "stairs-center-short",
+    "name": "Stairs Center Short",
+    "glb": "/kit/models/stairs-center-short.glb",
+    "preview": "/kit/previews/stairs-center-short.png",
+    "category": "stairs",
+    "size": [
+      1.3,
+      1.3,
+      2
+    ],
+    "center": [
+      0,
+      0.65,
+      -1
+    ]
+  },
+  {
+    "id": "stairs-closed",
+    "name": "Stairs Closed",
+    "glb": "/kit/models/stairs-closed.glb",
+    "preview": "/kit/previews/stairs-closed.png",
+    "category": "stairs",
+    "size": [
+      1.3,
+      2.5,
+      4
+    ],
+    "center": [
+      0,
+      1.25,
+      0
+    ]
+  },
+  {
+    "id": "stairs-closed-short",
+    "name": "Stairs Closed Short",
+    "glb": "/kit/models/stairs-closed-short.glb",
+    "preview": "/kit/previews/stairs-closed-short.png",
+    "category": "stairs",
+    "size": [
+      1.3,
+      1.3,
+      2
+    ],
+    "center": [
+      0,
+      0.65,
+      -1
+    ]
+  },
+  {
+    "id": "stairs-open",
+    "name": "Stairs Open",
+    "glb": "/kit/models/stairs-open.glb",
+    "preview": "/kit/previews/stairs-open.png",
+    "category": "stairs",
+    "size": [
+      1.3,
+      2.5,
+      4
+    ],
+    "center": [
+      0,
+      1.25,
+      0
+    ]
+  },
+  {
+    "id": "stairs-open-short",
+    "name": "Stairs Open Short",
+    "glb": "/kit/models/stairs-open-short.glb",
+    "preview": "/kit/previews/stairs-open-short.png",
+    "category": "stairs",
+    "size": [
+      1.3,
+      1.3,
+      2
+    ],
+    "center": [
+      0,
+      0.65,
+      -1
+    ]
+  },
+  {
+    "id": "stairs-sides",
+    "name": "Stairs Sides",
+    "glb": "/kit/models/stairs-sides.glb",
+    "preview": "/kit/previews/stairs-sides.png",
+    "category": "stairs",
+    "size": [
+      1.3,
+      2.55,
+      6
+    ],
+    "center": [
+      0,
+      1.275,
+      1
+    ]
+  },
+  {
+    "id": "stairs-sides-short",
+    "name": "Stairs Sides Short",
+    "glb": "/kit/models/stairs-sides-short.glb",
+    "preview": "/kit/previews/stairs-sides-short.png",
+    "category": "stairs",
+    "size": [
+      1.3,
+      1.35,
+      4
+    ],
+    "center": [
+      0,
+      0.675,
+      0
+    ]
+  },
+  {
+    "id": "wall",
+    "name": "Wall",
+    "glb": "/kit/models/wall.glb",
+    "preview": "/kit/previews/wall.png",
+    "category": "wall",
+    "size": [
+      0.1,
+      2.4,
+      2
+    ],
+    "center": [
+      0,
+      1.2,
+      0
+    ]
+  },
+  {
+    "id": "wall-corner",
+    "name": "Wall Corner",
+    "glb": "/kit/models/wall-corner.glb",
+    "preview": "/kit/previews/wall-corner.png",
+    "category": "wall",
+    "size": [
+      2,
+      2.4,
+      2
+    ],
+    "center": [
+      0,
+      1.2,
+      0
+    ]
+  },
+  {
+    "id": "wall-corner-column",
+    "name": "Wall Corner Column",
+    "glb": "/kit/models/wall-corner-column.glb",
+    "preview": "/kit/previews/wall-corner-column.png",
+    "category": "wall",
+    "size": [
+      2.075,
+      2.4,
+      2.075
+    ],
+    "center": [
+      0.037,
+      1.2,
+      0.037
+    ]
+  },
+  {
+    "id": "wall-corner-column-bottom",
+    "name": "Wall Corner Column Bottom",
+    "glb": "/kit/models/wall-corner-column-bottom.glb",
+    "preview": "/kit/previews/wall-corner-column-bottom.png",
+    "category": "wall",
+    "size": [
+      2.125,
+      2.4,
+      2.125
+    ],
+    "center": [
+      0.063,
+      1.2,
+      0.063
+    ]
+  },
+  {
+    "id": "wall-corner-column-small",
+    "name": "Wall Corner Column Small",
+    "glb": "/kit/models/wall-corner-column-small.glb",
+    "preview": "/kit/previews/wall-corner-column-small.png",
+    "category": "wall",
+    "size": [
+      1.075,
+      2.4,
+      1.078
+    ],
+    "center": [
+      0.537,
+      1.2,
+      0.539
+    ]
+  },
+  {
+    "id": "wall-corner-column-small-bottom",
+    "name": "Wall Corner Column Small Bottom",
+    "glb": "/kit/models/wall-corner-column-small-bottom.glb",
+    "preview": "/kit/previews/wall-corner-column-small-bottom.png",
+    "category": "wall",
+    "size": [
+      1.125,
+      2.4,
+      1.125
+    ],
+    "center": [
+      0.563,
+      1.2,
+      0.562
+    ]
+  },
+  {
+    "id": "wall-corner-diagonal",
+    "name": "Wall Corner Diagonal",
+    "glb": "/kit/models/wall-corner-diagonal.glb",
+    "preview": "/kit/previews/wall-corner-diagonal.png",
+    "category": "wall",
+    "size": [
+      2,
+      2.4,
+      2
+    ],
+    "center": [
+      0,
+      1.2,
+      0
+    ]
+  },
+  {
+    "id": "wall-corner-round",
+    "name": "Wall Corner Round",
+    "glb": "/kit/models/wall-corner-round.glb",
+    "preview": "/kit/previews/wall-corner-round.png",
+    "category": "wall",
+    "size": [
+      2,
+      2.4,
+      2
+    ],
+    "center": [
+      0,
+      1.2,
+      0
+    ]
+  },
+  {
+    "id": "wall-doorway-round",
+    "name": "Wall Doorway Round",
+    "glb": "/kit/models/wall-doorway-round.glb",
+    "preview": "/kit/previews/wall-doorway-round.png",
+    "category": "wall",
+    "size": [
+      0.2,
+      2.4,
+      2
+    ],
+    "center": [
+      0,
+      1.2,
+      0
+    ]
+  },
+  {
+    "id": "wall-doorway-square",
+    "name": "Wall Doorway Square",
+    "glb": "/kit/models/wall-doorway-square.glb",
+    "preview": "/kit/previews/wall-doorway-square.png",
+    "category": "wall",
+    "size": [
+      0.2,
+      2.4,
+      2
+    ],
+    "center": [
+      0,
+      1.2,
+      0
+    ]
+  },
+  {
+    "id": "wall-doorway-wide-round",
+    "name": "Wall Doorway Wide Round",
+    "glb": "/kit/models/wall-doorway-wide-round.glb",
+    "preview": "/kit/previews/wall-doorway-wide-round.png",
+    "category": "wall",
+    "size": [
+      0.2,
+      2.4,
+      4
+    ],
+    "center": [
+      0,
+      1.2,
+      0
+    ]
+  },
+  {
+    "id": "wall-doorway-wide-square",
+    "name": "Wall Doorway Wide Square",
+    "glb": "/kit/models/wall-doorway-wide-square.glb",
+    "preview": "/kit/previews/wall-doorway-wide-square.png",
+    "category": "wall",
+    "size": [
+      0.2,
+      2.4,
+      4
+    ],
+    "center": [
+      0,
+      1.2,
+      0
+    ]
+  },
+  {
+    "id": "wall-half",
+    "name": "Wall Half",
+    "glb": "/kit/models/wall-half.glb",
+    "preview": "/kit/previews/wall-half.png",
+    "category": "wall",
+    "size": [
+      0.1,
+      2.4,
+      1
+    ],
+    "center": [
+      0,
+      1.2,
+      0
+    ]
+  },
+  {
+    "id": "wall-low",
+    "name": "Wall Low",
+    "glb": "/kit/models/wall-low.glb",
+    "preview": "/kit/previews/wall-low.png",
+    "category": "wall",
+    "size": [
+      0.1,
+      1.2,
+      2
+    ],
+    "center": [
+      0,
+      0.6,
+      0
+    ]
+  },
+  {
+    "id": "wall-window-round",
+    "name": "Wall Window Round",
+    "glb": "/kit/models/wall-window-round.glb",
+    "preview": "/kit/previews/wall-window-round.png",
+    "category": "wall",
+    "size": [
+      0.2,
+      2.4,
+      2
+    ],
+    "center": [
+      0,
+      1.2,
+      0
+    ]
+  },
+  {
+    "id": "wall-window-round-detailed",
+    "name": "Wall Window Round Detailed",
+    "glb": "/kit/models/wall-window-round-detailed.glb",
+    "preview": "/kit/previews/wall-window-round-detailed.png",
+    "category": "wall",
+    "size": [
+      0.2,
+      2.4,
+      2
+    ],
+    "center": [
+      0,
+      1.2,
+      0
+    ]
+  },
+  {
+    "id": "wall-window-square",
+    "name": "Wall Window Square",
+    "glb": "/kit/models/wall-window-square.glb",
+    "preview": "/kit/previews/wall-window-square.png",
+    "category": "wall",
+    "size": [
+      0.2,
+      2.4,
+      2
+    ],
+    "center": [
+      0,
+      1.2,
+      0
+    ]
+  },
+  {
+    "id": "wall-window-square-detailed",
+    "name": "Wall Window Square Detailed",
+    "glb": "/kit/models/wall-window-square-detailed.glb",
+    "preview": "/kit/previews/wall-window-square-detailed.png",
+    "category": "wall",
+    "size": [
+      0.2,
+      2.4,
+      2
+    ],
+    "center": [
+      0,
+      1.2,
+      0
+    ]
+  },
+  {
+    "id": "wall-window-wide-round",
+    "name": "Wall Window Wide Round",
+    "glb": "/kit/models/wall-window-wide-round.glb",
+    "preview": "/kit/previews/wall-window-wide-round.png",
+    "category": "wall",
+    "size": [
+      0.2,
+      2.4,
+      4
+    ],
+    "center": [
+      0,
+      1.2,
+      0
+    ]
+  },
+  {
+    "id": "wall-window-wide-round-detailed",
+    "name": "Wall Window Wide Round Detailed",
+    "glb": "/kit/models/wall-window-wide-round-detailed.glb",
+    "preview": "/kit/previews/wall-window-wide-round-detailed.png",
+    "category": "wall",
+    "size": [
+      0.2,
+      2.4,
+      4
+    ],
+    "center": [
+      0,
+      1.2,
+      0
+    ]
+  },
+  {
+    "id": "wall-window-wide-square",
+    "name": "Wall Window Wide Square",
+    "glb": "/kit/models/wall-window-wide-square.glb",
+    "preview": "/kit/previews/wall-window-wide-square.png",
+    "category": "wall",
+    "size": [
+      0.2,
+      2.4,
+      4
+    ],
+    "center": [
+      0,
+      1.2,
+      0
+    ]
+  },
+  {
+    "id": "wall-window-wide-square-detailed",
+    "name": "Wall Window Wide Square Detailed",
+    "glb": "/kit/models/wall-window-wide-square-detailed.glb",
+    "preview": "/kit/previews/wall-window-wide-square-detailed.png",
+    "category": "wall",
+    "size": [
+      0.2,
+      2.4,
+      4
+    ],
+    "center": [
+      0,
+      1.2,
+      0
+    ]
+  }
+]
