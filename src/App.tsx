@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { useGLTF, useProgress } from '@react-three/drei';
 import { Scene } from './three/Scene';
 import { Toolbar } from './ui/Toolbar';
 import { ToolDock } from './ui/ToolDock';
@@ -17,6 +18,12 @@ export default function App() {
   useEffect(() => {
     if (pieces) setPieces(pieces);
   }, [pieces, setPieces]);
+
+  // Warm the GLB cache in the background once the manifest loads, so the first time
+  // a piece type appears it's already loaded — no mid-edit suspend / black flash.
+  useEffect(() => {
+    pieces?.forEach((p) => useGLTF.preload(p.glb));
+  }, [pieces]);
 
   useEffect(() => {
     if (import.meta.env.DEV) (window as unknown as Record<string, unknown>).useBuildStore = useBuildStore;
@@ -123,8 +130,18 @@ export default function App() {
           {pieces && <FloorStrip />}
           {pieces && <NavWidget />}
           {pieces && <ToolDock />}
+          <ModelLoadingBadge />
         </div>
       </div>
     </div>
   );
+}
+
+/** Non-blocking corner badge shown while kit models are loading (drei tracks
+ *  useGLTF via its loading manager), so a first-load wait reads as progress,
+ *  not a frozen/black screen. */
+function ModelLoadingBadge() {
+  const { active, progress } = useProgress();
+  if (!active) return null;
+  return <div className="model-loading">加载模型 {Math.round(progress)}%</div>;
 }

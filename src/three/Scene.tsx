@@ -1,7 +1,7 @@
 import { Canvas, useThree } from '@react-three/fiber';
 import { Grid, OrbitControls, GizmoHelper, GizmoViewport } from '@react-three/drei';
 import * as THREE from 'three';
-import { forwardRef, useEffect } from 'react';
+import { forwardRef, Suspense, useEffect } from 'react';
 import { useBuildStore } from '../store/useBuildStore';
 import { GRID } from '../kit/constants';
 import { GroundPlane } from './GroundPlane';
@@ -120,10 +120,14 @@ export const Scene = forwardRef<THREE.Group>(function Scene(_props, exportRef) {
 
       <GroundPlane />
 
-      {/* Finished building — always mounted (export reads this group); hidden in abstract view. */}
-      <group ref={exportRef} visible={!abstractView}>
-        <PlacedPieces />
-      </group>
+      {/* Finished building — always mounted (export reads this group); hidden in abstract view.
+          Wrapped in Suspense so a GLB still loading only blanks the building subtree (the
+          ground/grid/lights/camera stay) — never the whole canvas. */}
+      <Suspense fallback={null}>
+        <group ref={exportRef} visible={!abstractView}>
+          <PlacedPieces />
+        </group>
+      </Suspense>
       {abstractView && <AbstractView />}
 
       {/* Selection/hover highlight — OUTSIDE the export group so it never goes into the GLB. */}

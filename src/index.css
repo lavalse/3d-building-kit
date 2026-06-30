@@ -431,6 +431,23 @@ body,
   line-height: 1.8;
 }
 
+/* Non-blocking "models loading" badge (top-center, doesn't intercept clicks). */
+.model-loading {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(16, 24, 40, 0.78);
+  color: #e7eef9;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+  backdrop-filter: blur(4px);
+}
+
 code {
   background: var(--panel-2);
   padding: 2px 6px;
