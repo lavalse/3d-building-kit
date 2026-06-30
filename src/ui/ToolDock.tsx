@@ -1,11 +1,20 @@
 import { useBuildStore } from '../store/useBuildStore';
-import type { FaceOverride, SkinTheme, Tool } from '../kit/types';
+import type { FaceOverride, RoofStyle, SkinTheme, Tool } from '../kit/types';
 
 const TOOLS: { id: Tool; label: string; icon: string }[] = [
   { id: 'select', label: '选择', icon: '🖱️' },
   { id: 'space', label: '画空间', icon: '✏️' },
   { id: 'stair', label: '楼梯', icon: '🪜' },
+  { id: 'roof', label: '屋顶', icon: '🛖' },
   { id: 'erase', label: '擦除', icon: '🧽' },
+];
+
+// Procedural roof styles for the roof tool / a selected roof.
+const ROOF_STYLES: { id: RoofStyle; label: string; icon: string }[] = [
+  { id: 'gable', label: '双坡', icon: '🔺' },
+  { id: 'hip', label: '四坡', icon: '⛰️' },
+  { id: 'dome', label: '圆顶', icon: '🔵' },
+  { id: 'shed', label: '单坡', icon: '📐' },
 ];
 
 // Structural/enclosure type of a space (not a building program): full walls →
@@ -48,6 +57,15 @@ export function ToolDock() {
   const autoStairs = useBuildStore((s) => s.circulation.auto);
   const rerollStairs = useBuildStore((s) => s.rerollStairs);
   const toggleAutoStairs = useBuildStore((s) => s.toggleAutoStairs);
+  const activeRoofStyle = useBuildStore((s) => s.activeRoofStyle);
+  const setActiveRoofStyle = useBuildStore((s) => s.setActiveRoofStyle);
+  const selectedRoofId = useBuildStore((s) => s.selectedRoofId);
+  const setRoofStyle = useBuildStore((s) => s.setRoofStyle);
+  const rotateRoof = useBuildStore((s) => s.rotateRoof);
+  const removeRoof = useBuildStore((s) => s.removeRoof);
+  const selRoofStyle = useBuildStore((s) =>
+    selectedRoofId ? s.roofs.find((r) => r.id === selectedRoofId)?.style ?? null : null
+  );
   // The selected stair's current model (only platform towers carry one).
   const platformKey = selectedStairId?.startsWith('platform:') ? selectedStairId.slice('platform:'.length) : null;
   const selModel = useBuildStore((s) => (platformKey ? s.circulation.platformModel[platformKey] ?? 'stairs-open' : null));
@@ -64,13 +82,17 @@ export function ToolDock() {
       : tool === 'stair'
         ? '上到门所在层 · 在门外侧点一块平台 → 楼梯自动贴墙接到地面 · 室内楼梯自动('
           + (autoStairs ? '开·换一个' : '关') + ')'
-        : tool === 'erase'
-          ? '拖矩形擦掉格子（含其中的楼梯）'
-          : selectedStairId
-            ? '已选楼梯 · 删除'
-            : selCount > 0
-              ? `已选 ${selCount} 面 · 选 窗/门/实墙 · 相邻两块设同款 = 自动变宽`
-              : '点墙或楼梯选中（墙可 Shift 多选）';
+        : tool === 'roof'
+          ? '在建筑顶层(或其上一层)的屋顶范围拖一个矩形 → 生成屋顶 · 右侧选样式(双坡/四坡/圆顶/单坡)'
+          : tool === 'erase'
+            ? '拖矩形擦掉格子（含其中的楼梯）'
+            : selectedStairId
+              ? '已选楼梯 · 删除'
+              : selectedRoofId
+                ? '已选屋顶 · 换样式 / 旋转 / 删除'
+                : selCount > 0
+                  ? `已选 ${selCount} 面 · 选 窗/门/实墙 · 相邻两块设同款 = 自动变宽`
+                  : '点墙/楼梯/屋顶选中（墙可 Shift 多选）';
 
   return (
     <div className="tooldock-wrap">
@@ -129,6 +151,52 @@ export function ToolDock() {
               >
                 <span className="dock-icon">🎲</span>
                 <span className="dock-label">换一个</span>
+              </button>
+            </div>
+          </>
+        )}
+
+        {tool === 'roof' && (
+          <>
+            <div className="dock-divider" />
+            <div className="dock-group">
+              {ROOF_STYLES.map((r) => (
+                <button
+                  key={r.id}
+                  className={'chip' + (activeRoofStyle === r.id ? ' active' : '')}
+                  onClick={() => setActiveRoofStyle(r.id)}
+                  title={`屋顶样式：${r.label}`}
+                >
+                  <span className="dock-icon">{r.icon}</span>
+                  <span className="dock-label">{r.label}</span>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+
+        {tool === 'select' && selectedRoofId && (
+          <>
+            <div className="dock-divider" />
+            <div className="dock-group">
+              {ROOF_STYLES.map((r) => (
+                <button
+                  key={r.id}
+                  className={'chip' + (selRoofStyle === r.id ? ' active' : '')}
+                  onClick={() => setRoofStyle(selectedRoofId, r.id)}
+                  title={`屋顶样式：${r.label}`}
+                >
+                  <span className="dock-icon">{r.icon}</span>
+                  <span className="dock-label">{r.label}</span>
+                </button>
+              ))}
+              <button className="chip" onClick={() => rotateRoof(selectedRoofId)} title="旋转屋脊/坡向(双坡·单坡)">
+                <span className="dock-icon">🔄</span>
+                <span className="dock-label">旋转</span>
+              </button>
+              <button className="chip" onClick={() => removeRoof(selectedRoofId)} title="删除这个屋顶">
+                <span className="dock-icon">🗑️</span>
+                <span className="dock-label">删除</span>
               </button>
             </div>
           </>

@@ -4,7 +4,7 @@ import { WALL_HEIGHT } from '../kit/constants';
 import { deriveSkin, type StyleBySpace } from '../kit/deriveSkin';
 import { type Circulation, platformDoorFace, cycleDescentDir } from '../kit/deriveCirculation';
 import { eraseRect, fillRect, groundLevelOfCells, normalizeRect, type CellMap } from '../kit/massing';
-import type { Dir, FaceOverride, Instance, PieceDef, SkinTheme, Stair, Tool } from '../kit/types';
+import type { Dir, FaceOverride, Instance, PieceDef, RoofRegion, RoofStyle, SkinTheme, Stair, Tool } from '../kit/types';
 
 const uid = () =>
   typeof crypto !== 'undefined' && crypto.randomUUID
@@ -20,6 +20,7 @@ type Snapshot = {
   faceOverrides: Overrides;
   roofOverrides: RoofOverrides;
   circulation: Circulation;
+  roofs: RoofRegion[];
 };
 const MAX_HISTORY = 50;
 
@@ -55,6 +56,22 @@ const pruneStyles = (cells: CellMap, styleBySpace: StyleBySpace): StyleBySpace =
   return out;
 };
 
+// A drawn roof stays valid only while its rect is a clean rooftop: it must still have
+// building under it (some cell occupied at `level`) AND nothing built on top of it (no cell
+// occupied at `level+1`). So drawing a space above a roof — or stacking a floor on it —
+// invalidates it (the rooftop is gone) and it's dropped; erasing the whole roofed area
+// drops it too. An L-shaped notch (occupied neither at level nor above) is tolerated.
+const pruneRoofs = (cells: CellMap, roofs: RoofRegion[]): RoofRegion[] =>
+  roofs.filter((r) => {
+    let hasSurface = false;
+    for (let i = Math.min(r.ci0, r.ci1); i <= Math.max(r.ci0, r.ci1); i++)
+      for (let j = Math.min(r.cj0, r.cj1); j <= Math.max(r.cj0, r.cj1); j++) {
+        if (cells[`${r.level + 1},${i},${j}`]) return false; // built over → roof void
+        if (cells[`${r.level},${i},${j}`]) hasSurface = true;
+      }
+    return hasSurface;
+  });
+
 /** On-screen camera buttons register their handlers here (set by a Canvas bridge). */
 interface CameraOps {
   zoomIn?: () => void;
@@ -76,6 +93,7 @@ interface BuildState {
   faceOverrides: Overrides;
   roofOverrides: RoofOverrides;
   circulation: Circulation;
+  roofs: RoofRegion[];
   floorHeight: number;
 
   // derived
@@ -86,12 +104,14 @@ interface BuildState {
   tool: Tool;
   activeLevel: number;
   activeStyle: SkinTheme; // the style applied to the next drawn space
+  activeRoofStyle: RoofStyle; // the style applied to the next drawn roof
   roofFallbackCenter: boolean;
   abstractView: boolean;
   camera: CameraOps;
   hoveredKey: string | null;
   selectedKeys: string[];
   selectedStairId: string | null;
+  selectedRoofId: string | null;
   past: Snapshot[];
   future: Snapshot[];
 
@@ -100,12 +120,14 @@ interface BuildState {
   setActiveLevel: (n: number) => void;
   stepLevel: (dir: 1 | -1) => void;
   setActiveStyle: (t: SkinTheme) => void;
+  setActiveRoofStyle: (t: RoofStyle) => void;
   toggleRoofFallback: () => void;
   toggleAbstract: () => void;
   setCamera: (ops: CameraOps) => void;
   setHovered: (key: string | null) => void;
   selectFace: (key: string, additive: boolean) => void;
   selectStair: (id: string) => void;
+  selectRoof: (id: string) => void;
   clearSelection: () => void;
   cycleSelection: (dir: 1 | -1) => void;
   setSelectionStyle: (kind: FaceOverride | 'auto') => void;
@@ -114,6 +136,10 @@ interface BuildState {
   eraseCells: (ai: number, aj: number, bi: number, bj: number) => void;
   addStair: (ci: number, cj: number, dir: Dir) => void;
   addPlatform: (ci: number, cj: number) => void;
+  addRoof: (ai: number, aj: number, bi: number, bj: number) => void;
+  setRoofStyle: (id: string, style: RoofStyle) => void;
+  rotateRoof: (id: string) => void;
+  removeRoof: (id: string) => void;
   setPlatformModel: (platformKey: string, model: string) => void;
   rotatePlatformDir: (platformKey: string) => void;
   rotateStair: (id: string) => void;
@@ -139,6 +165,7 @@ export const useBuildStore = create<BuildState>()(
         faceOverrides: s.faceOverrides,
         roofOverrides: s.roofOverrides,
         circulation: s.circulation,
+        roofs: s.roofs,
       });
 
       // Apply an edit producing new {cells/styleBySpace/faceOverrides/roofOverrides/circulation},
@@ -147,7 +174,7 @@ export const useBuildStore = create<BuildState>()(
         producer: (
           s: BuildState
         ) => Partial<
-          Pick<BuildState, 'cells' | 'styleBySpace' | 'faceOverrides' | 'roofOverrides' | 'circulation'>
+          Pick<BuildState, 'cells' | 'styleBySpace' | 'faceOverrides' | 'roofOverrides' | 'circulation' | 'roofs'>
         >
       ) =>
         set((s) => {
@@ -157,12 +184,14 @@ export const useBuildStore = create<BuildState>()(
           const faceOverrides = next.faceOverrides ?? s.faceOverrides;
           const roofOverrides = next.roofOverrides ?? s.roofOverrides;
           const circulation = next.circulation ?? s.circulation;
+          const roofs = pruneRoofs(cells, next.roofs ?? s.roofs);
           return {
             cells,
             styleBySpace,
             faceOverrides,
             roofOverrides,
             circulation,
+            roofs,
             instances: reskinFrom(cells, styleBySpace, faceOverrides, roofOverrides, s.roofFallbackCenter, circulation),
             past: [...s.past, snapshot(s)].slice(-MAX_HISTORY),
             future: [],
@@ -175,6 +204,7 @@ export const useBuildStore = create<BuildState>()(
         faceOverrides: {},
         roofOverrides: {},
         circulation: emptyCirculation(),
+        roofs: [],
         floorHeight: WALL_HEIGHT, // fixed: stacked floors must match the wall height
         instances: [],
 
@@ -182,12 +212,14 @@ export const useBuildStore = create<BuildState>()(
         tool: 'select',
         activeLevel: 0,
         activeStyle: 'enclosed',
+        activeRoofStyle: 'gable',
         roofFallbackCenter: false,
         abstractView: false,
         camera: {},
         hoveredKey: null,
         selectedKeys: [],
         selectedStairId: null,
+        selectedRoofId: null,
         past: [],
         future: [],
 
@@ -209,6 +241,7 @@ export const useBuildStore = create<BuildState>()(
             return next === s.activeLevel ? {} : { activeLevel: next };
           }),
         setActiveStyle: (t) => set({ activeStyle: t }),
+        setActiveRoofStyle: (t) => set({ activeRoofStyle: t }),
         toggleRoofFallback: () =>
           set((s) => {
             const roofFallbackCenter = !s.roofFallbackCenter;
@@ -223,20 +256,25 @@ export const useBuildStore = create<BuildState>()(
 
         selectFace: (key, additive) =>
           set((s) => {
-            // Selecting a face deselects any stair (faces & stairs are mutually exclusive).
-            if (!additive) return { selectedKeys: [key], selectedStairId: null };
+            // Selecting a face deselects any stair/roof (the three are mutually exclusive).
+            if (!additive) return { selectedKeys: [key], selectedStairId: null, selectedRoofId: null };
             return {
               selectedStairId: null,
+              selectedRoofId: null,
               selectedKeys: s.selectedKeys.includes(key)
                 ? s.selectedKeys.filter((k) => k !== key)
                 : [...s.selectedKeys, key],
             };
           }),
-        // Select a single stair (clears any face selection).
-        selectStair: (id) => set({ selectedStairId: id, selectedKeys: [] }),
+        // Select a single stair (clears any face/roof selection).
+        selectStair: (id) => set({ selectedStairId: id, selectedKeys: [], selectedRoofId: null }),
+        // Select a single roof (clears any face/stair selection).
+        selectRoof: (id) => set({ selectedRoofId: id, selectedKeys: [], selectedStairId: null }),
         clearSelection: () =>
           set((s) =>
-            s.selectedKeys.length || s.selectedStairId ? { selectedKeys: [], selectedStairId: null } : {}
+            s.selectedKeys.length || s.selectedStairId || s.selectedRoofId
+              ? { selectedKeys: [], selectedStairId: null, selectedRoofId: null }
+              : {}
           ),
         // Cycle the style of every selected face together (as one unit).
         cycleSelection: (dir) => {
@@ -317,6 +355,49 @@ export const useBuildStore = create<BuildState>()(
             return { faceOverrides, circulation: { ...c, platforms: [...c.platforms, key] } };
           });
         },
+        // Draw a roof over a rectangle of building-top cells, stamped with the active
+        // style. Caps the building TOP within the rect: we try the active level first, then
+        // the level just below it — so drawing while standing on the rooftop OR on the empty
+        // level above it both work (the common "go up one, then roof it" instinct). Clamps to
+        // the bounding box of the actual top cells (occupied there, open above); ignored if
+        // the rect covers no rooftop on either level.
+        addRoof: (ai, aj, bi, bj) => {
+          const active = get().activeLevel;
+          const style = get().activeRoofStyle;
+          commit((s) => {
+            const r = normalizeRect(ai, aj, bi, bj);
+            const topBox = (level: number) => {
+              if (level < 0) return null;
+              let ci0 = Infinity, cj0 = Infinity, ci1 = -Infinity, cj1 = -Infinity, any = false;
+              for (let i = r.ci0; i <= r.ci1; i++)
+                for (let j = r.cj0; j <= r.cj1; j++) {
+                  const top = !!s.cells[`${level},${i},${j}`] && !s.cells[`${level + 1},${i},${j}`];
+                  if (!top) continue;
+                  any = true;
+                  ci0 = Math.min(ci0, i); cj0 = Math.min(cj0, j); ci1 = Math.max(ci1, i); cj1 = Math.max(cj1, j);
+                }
+              return any ? { level, ci0, cj0, ci1, cj1 } : null;
+            };
+            const box = topBox(active) ?? topBox(active - 1);
+            if (!box) return {};
+            // One roof per area: the new one replaces any existing roof it overlaps (same
+            // level, intersecting cell rect) — latest-wins, like redrawing a space.
+            const overlaps = (r: RoofRegion) =>
+              r.level === box.level &&
+              Math.min(r.ci0, r.ci1) <= box.ci1 && Math.max(r.ci0, r.ci1) >= box.ci0 &&
+              Math.min(r.cj0, r.cj1) <= box.cj1 && Math.max(r.cj0, r.cj1) >= box.cj0;
+            return { roofs: [...s.roofs.filter((r) => !overlaps(r)), { id: uid(), ...box, style }] };
+          });
+        },
+        setRoofStyle: (id, style) =>
+          commit((s) => ({ roofs: s.roofs.map((r) => (r.id === id ? { ...r, style } : r)) })),
+        // Swap the ridge/slope axis (gable & shed); no-op visual for hip/dome.
+        rotateRoof: (id) =>
+          commit((s) => ({ roofs: s.roofs.map((r) => (r.id === id ? { ...r, rotated: !r.rotated } : r)) })),
+        removeRoof: (id) => {
+          set((s) => (s.selectedRoofId === id ? { selectedRoofId: null } : {}));
+          commit((s) => ({ roofs: s.roofs.filter((r) => r.id !== id) }));
+        },
         // Swap the stair model for a platform tower (its `platform:<key>` group).
         setPlatformModel: (platformKey, model) =>
           commit((s) => ({ circulation: { ...s.circulation, platformModel: { ...s.circulation.platformModel, [platformKey]: model } } })),
@@ -382,8 +463,8 @@ export const useBuildStore = create<BuildState>()(
         toggleAutoStairs: () =>
           commit((s) => ({ circulation: { ...s.circulation, auto: !s.circulation.auto } })),
         clearAll: () => {
-          set({ selectedKeys: [], selectedStairId: null });
-          commit(() => ({ cells: {}, styleBySpace: {}, faceOverrides: {}, roofOverrides: {}, circulation: emptyCirculation() }));
+          set({ selectedKeys: [], selectedStairId: null, selectedRoofId: null });
+          commit(() => ({ cells: {}, styleBySpace: {}, faceOverrides: {}, roofOverrides: {}, circulation: emptyCirculation(), roofs: [] }));
         },
 
         undo: () =>
@@ -408,8 +489,8 @@ export const useBuildStore = create<BuildState>()(
           }),
 
         exportProject: () => {
-          const { cells, styleBySpace, faceOverrides, roofOverrides, circulation } = get();
-          return JSON.stringify({ version: 10, cells, styleBySpace, faceOverrides, roofOverrides, circulation }, null, 2);
+          const { cells, styleBySpace, faceOverrides, roofOverrides, circulation, roofs } = get();
+          return JSON.stringify({ version: 11, cells, styleBySpace, faceOverrides, roofOverrides, circulation, roofs }, null, 2);
         },
         importProject: (json) => {
           try {
@@ -429,6 +510,7 @@ export const useBuildStore = create<BuildState>()(
               faceOverrides: data.faceOverrides ?? {},
               roofOverrides: data.roofOverrides ?? {},
               circulation,
+              roofs: Array.isArray(data.roofs) ? data.roofs : [],
             }));
           } catch (e) {
             alert('无法导入工程：' + e);
@@ -438,13 +520,14 @@ export const useBuildStore = create<BuildState>()(
     },
     {
       name: 'building-kit-project',
-      version: 10,
+      version: 11,
       partialize: (s) => ({
         cells: s.cells,
         styleBySpace: s.styleBySpace,
         faceOverrides: s.faceOverrides,
         roofOverrides: s.roofOverrides,
         circulation: s.circulation,
+        roofs: s.roofs,
       }),
       // v7: house/pavilion/open program names → enclosed/open structural types.
       // v8: manual `stairs[]` → `circulation.manual` (auto cores now derive themselves).
@@ -467,6 +550,7 @@ export const useBuildStore = create<BuildState>()(
           faceOverrides: (s.faceOverrides ?? {}) as Overrides,
           roofOverrides: (s.roofOverrides ?? {}) as RoofOverrides,
           circulation,
+          roofs: (Array.isArray(s.roofs) ? s.roofs : []) as RoofRegion[], // v11: drawn roofs
         };
       },
       onRehydrateStorage: () => (state) => {

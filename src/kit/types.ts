@@ -41,7 +41,28 @@ export interface Space {
 //   open     = post-and-slab frame: a regular column grid carries floor/roof, no walls
 export type SkinTheme = 'enclosed' | 'semi' | 'open';
 
-export type Tool = 'select' | 'space' | 'erase' | 'stair';
+// A drawn roof over a rectangular region of a building's top — materialized as
+// procedural geometry (the kit has flat roofs only). Sized to its footprint, so a
+// 4×4 region yields a big roof and a 3×3 a small one.
+//   gable = twin-pitch (ridge + two slopes + gable ends)
+//   hip   = four slopes; a square footprint collapses to a pyramid (攒尖) apex
+//   dome  = half-ellipsoid scaled to the footprint
+//   shed  = single mono-pitch slope
+export type RoofStyle = 'gable' | 'hip' | 'dome' | 'shed';
+
+/** Persisted truth: one drawn roof. Region is a cell rectangle on `level`'s top. */
+export interface RoofRegion {
+  id: string;
+  level: number;
+  ci0: number;
+  cj0: number;
+  ci1: number;
+  cj1: number;
+  style: RoofStyle;
+  rotated?: boolean; // swap the ridge/slope axis (gable & shed)
+}
+
+export type Tool = 'select' | 'space' | 'erase' | 'stair' | 'roof';
 
 /** Climb direction of a stair (the direction you ascend toward). */
 export type Dir = 'N' | 'E' | 'S' | 'W';

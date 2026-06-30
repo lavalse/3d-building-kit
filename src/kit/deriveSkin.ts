@@ -287,8 +287,8 @@ export function deriveSkin(
         yOffset: WALL_HEIGHT + 0.002, // lift a hair off the wall-top plane (anti z-fight)
         rotationY: 0,
       });
-      // Low rail along the outer boundary only (skip if fallback = plain flat).
-      // Sits ON TOP of the roof tile (not coplanar with it) to avoid z-fighting.
+      // Low rail along the outer boundary only (skip if fallback = plain flat). This is the
+      // kit's eave/cornice; drawn pitched roofs KEEP it and sit on top of it.
       if (!roofFallbackCenter) {
         for (const dir of DIRS) {
           if (!roofEdgeExposed(cells, roofOverrides, level, i, j, dir)) continue;

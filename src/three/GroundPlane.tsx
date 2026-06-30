@@ -23,6 +23,7 @@ export function GroundPlane() {
   const fillSpace = useBuildStore((s) => s.fillSpace);
   const eraseCells = useBuildStore((s) => s.eraseCells);
   const addPlatform = useBuildStore((s) => s.addPlatform);
+  const addRoof = useBuildStore((s) => s.addRoof);
   const clearSelection = useBuildStore((s) => s.clearSelection);
 
   const y = activeLevel * floorHeight;
@@ -31,7 +32,7 @@ export function GroundPlane() {
   const dragRef = useRef<Drag | null>(null); // mirror for handlers (no stale closure)
   const plane = useRef(new THREE.Plane()).current;
   const hit = useRef(new THREE.Vector3()).current;
-  const rect = tool === 'space' || tool === 'erase'; // rectangle (drag) tools
+  const rect = tool === 'space' || tool === 'erase' || tool === 'roof'; // rectangle (drag) tools
   const drawing = rect || tool === 'stair';
 
   // Resolve the pointer ray to a cell on the active-level plane, or null.
@@ -84,6 +85,7 @@ export function GroundPlane() {
     (e.target as Element)?.releasePointerCapture?.(e.pointerId);
     if (tool === 'space') fillSpace(d.ai, d.aj, d.bi, d.bj);
     else if (tool === 'erase') eraseCells(d.ai, d.aj, d.bi, d.bj);
+    else if (tool === 'roof') addRoof(d.ai, d.aj, d.bi, d.bj); // draw a roof over the rooftop rect
     else addPlatform(d.ai, d.aj); // stair tool: drop a landing platform at the clicked cell
     dragRef.current = null;
     setDrag(null);

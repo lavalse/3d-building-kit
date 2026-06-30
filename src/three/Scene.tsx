@@ -6,6 +6,7 @@ import { useBuildStore } from '../store/useBuildStore';
 import { GRID } from '../kit/constants';
 import { GroundPlane } from './GroundPlane';
 import { PlacedPieces } from './PlacedPieces';
+import { ProceduralRoofs } from './ProceduralRoofs';
 import { AbstractView } from './AbstractView';
 import { SelectionOverlay } from './SelectionOverlay';
 
@@ -126,6 +127,7 @@ export const Scene = forwardRef<THREE.Group>(function Scene(_props, exportRef) {
       <Suspense fallback={null}>
         <group ref={exportRef} visible={!abstractView}>
           <PlacedPieces />
+          <ProceduralRoofs />
         </group>
       </Suspense>
       {abstractView && <AbstractView />}

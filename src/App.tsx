@@ -44,10 +44,15 @@ export default function App() {
         s.redo();
         return;
       }
-      // Delete/Backspace removes the selected stair.
+      // Delete/Backspace removes the selected stair or roof.
       if (s.selectedStairId && (e.key === 'Delete' || e.key === 'Backspace')) {
         e.preventDefault();
         s.removeStair(s.selectedStairId);
+        return;
+      }
+      if (s.selectedRoofId && (e.key === 'Delete' || e.key === 'Backspace')) {
+        e.preventDefault();
+        s.removeRoof(s.selectedRoofId);
         return;
       }
       // Up/Down = floor navigation (high-frequency); Left/Right = cycle the

@@ -37,6 +37,12 @@ export const PIECE_STAIRS_CLOSED = 'stairs-closed';
 export const PIECE_ROOF_CENTER = 'roof-flat-center';
 export const PIECE_BORDER = 'border'; // low perimeter rail (parapet) along the roof outline
 
+// Procedural (drawn) roofs — generated geometry, not GLB pieces.
+export const ROOF_RISE = 0.6; // ridge/apex height as a fraction of half the SHORTER span
+export const ROOF_COLOR = '#3b424f'; // dark slate, matched to the kit's flat-roof tiles
+export const ROOF_EAVE = 0.3; // overhang past the walls on every side (m) — the roof oversails
+export const ROOF_CORNICE = 0.4; // height of the kit's `border` eave above the wall-top — the pitch sits on top of it
+
 // World coordinate helpers for the square-cell model.
 export const cellCenter = (i: number) => GRID * i + HALF; // center of cell i (X or Z)
 export const line = (i: number) => GRID * i; // grid line / cell boundary i
