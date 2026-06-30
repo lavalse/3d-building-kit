@@ -5,6 +5,9 @@ import { deriveSkin, type StyleBySpace } from '../kit/deriveSkin';
 import { type Circulation, platformDoorFace, cycleDescentDir } from '../kit/deriveCirculation';
 import { eraseRect, fillRect, groundLevelOfCells, normalizeRect, type CellMap } from '../kit/massing';
 import type { Dir, FaceOverride, Instance, PieceDef, RoofRegion, RoofStyle, SkinTheme, Stair, Tool } from '../kit/types';
+import type { PaletteCat } from '../kit/palette';
+
+type Palette = Partial<Record<PaletteCat, string>>; // semantic part → chosen colour
 
 const uid = () =>
   typeof crypto !== 'undefined' && crypto.randomUUID
@@ -94,6 +97,7 @@ interface BuildState {
   roofOverrides: RoofOverrides;
   circulation: Circulation;
   roofs: RoofRegion[];
+  palette: Palette; // per-semantic-part recolour (appearance only; not in undo/reskin)
   floorHeight: number;
 
   // derived
@@ -121,6 +125,8 @@ interface BuildState {
   stepLevel: (dir: 1 | -1) => void;
   setActiveStyle: (t: SkinTheme) => void;
   setActiveRoofStyle: (t: RoofStyle) => void;
+  setPaletteColor: (cat: PaletteCat, hex: string) => void;
+  resetPalette: () => void;
   toggleRoofFallback: () => void;
   toggleAbstract: () => void;
   setCamera: (ops: CameraOps) => void;
@@ -205,6 +211,7 @@ export const useBuildStore = create<BuildState>()(
         roofOverrides: {},
         circulation: emptyCirculation(),
         roofs: [],
+        palette: {},
         floorHeight: WALL_HEIGHT, // fixed: stacked floors must match the wall height
         instances: [],
 
@@ -242,6 +249,9 @@ export const useBuildStore = create<BuildState>()(
           }),
         setActiveStyle: (t) => set({ activeStyle: t }),
         setActiveRoofStyle: (t) => set({ activeRoofStyle: t }),
+        // Appearance only — recolour one semantic part; not part of commit/undo/reskin.
+        setPaletteColor: (cat, hex) => set((s) => ({ palette: { ...s.palette, [cat]: hex } })),
+        resetPalette: () => set((s) => (Object.keys(s.palette).length ? { palette: {} } : {})),
         toggleRoofFallback: () =>
           set((s) => {
             const roofFallbackCenter = !s.roofFallbackCenter;
@@ -513,8 +523,8 @@ export const useBuildStore = create<BuildState>()(
           }),
 
         exportProject: () => {
-          const { cells, styleBySpace, faceOverrides, roofOverrides, circulation, roofs } = get();
-          return JSON.stringify({ version: 11, cells, styleBySpace, faceOverrides, roofOverrides, circulation, roofs }, null, 2);
+          const { cells, styleBySpace, faceOverrides, roofOverrides, circulation, roofs, palette } = get();
+          return JSON.stringify({ version: 14, cells, styleBySpace, faceOverrides, roofOverrides, circulation, roofs, palette }, null, 2);
         },
         importProject: (json) => {
           try {
@@ -528,6 +538,7 @@ export const useBuildStore = create<BuildState>()(
                   platforms: data.circulation.platforms ?? [],
                   platformModel: data.circulation.platformModel ?? {}, platformDir: data.circulation.platformDir ?? {} }
               : { ...emptyCirculation(), manual: Array.isArray(data.stairs) ? data.stairs : [] };
+            set({ palette: data.palette && typeof data.palette === 'object' ? data.palette : {} });
             commit(() => ({
               cells,
               styleBySpace: data.styleBySpace ?? {},
@@ -544,7 +555,7 @@ export const useBuildStore = create<BuildState>()(
     },
     {
       name: 'building-kit-project',
-      version: 11,
+      version: 14,
       partialize: (s) => ({
         cells: s.cells,
         styleBySpace: s.styleBySpace,
@@ -552,6 +563,7 @@ export const useBuildStore = create<BuildState>()(
         roofOverrides: s.roofOverrides,
         circulation: s.circulation,
         roofs: s.roofs,
+        palette: s.palette,
       }),
       // v7: house/pavilion/open program names → enclosed/open structural types.
       // v8: manual `stairs[]` → `circulation.manual` (auto cores now derive themselves).
@@ -575,6 +587,7 @@ export const useBuildStore = create<BuildState>()(
           roofOverrides: (s.roofOverrides ?? {}) as RoofOverrides,
           circulation,
           roofs: (Array.isArray(s.roofs) ? s.roofs : []) as RoofRegion[], // v11: drawn roofs
+          palette: {} as Palette, // v14: palette keys changed (semantic parts); reset old colours
         };
       },
       onRehydrateStorage: () => (state) => {

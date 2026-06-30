@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useLayoutEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import type { ThreeEvent } from '@react-three/fiber';
 import { useBuildStore } from '../store/useBuildStore';
@@ -18,6 +18,9 @@ export function ProceduralRoofs() {
   const floorHeight = useBuildStore((s) => s.floorHeight);
   const selectedRoofId = useBuildStore((s) => s.selectedRoofId);
   const selectRoof = useBuildStore((s) => s.selectRoof);
+  // Drawn roofs follow the 'roof' category colour (so they recolour with the kit roof tiles).
+  const roofColor = useBuildStore((s) => s.palette.roof) ?? ROOF_COLOR;
+  useLayoutEffect(() => { MAT.color.set(roofColor); SEL_MAT.color.set(roofColor); }, [roofColor]);
   return (
     <>
       {roofs.map((r) => (
