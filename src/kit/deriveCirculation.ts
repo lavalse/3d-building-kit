@@ -18,6 +18,8 @@ export interface Circulation {
   manual: Stair[];
   suppressed: string[];
   platforms: string[]; // "level,ci,cj" outdoor landing platforms the user drew (stair auto-descends below)
+  platformModel: Record<string, string>; // platform key → stair pieceId override (default stairs-open)
+  platformDir: Record<string, Dir>; // platform key → forced descent direction (straight-descent only)
 }
 
 const STEP: Record<Dir, [number, number]> = { N: [0, 1], S: [0, -1], E: [1, 0], W: [-1, 0] };
@@ -188,6 +190,84 @@ const TANGENTS: Record<Dir, [Dir, Dir]> = {
 
 const ALL_DIRS: Dir[] = ['N', 'E', 'S', 'W'];
 
+type FlightSpec = { level: number; ci: number; cj: number; dir: Dir };
+
+/** March a straight descent from platform (F,pi,pj) along `ext`, stopping at the first
+ *  WALKABLE SURFACE below — a building roof/terrace, or the ground — whichever comes
+ *  first. Returns the flights (no id/model) + whether it landed on a building roof
+ *  (a terrace) vs the ground, or null if blocked before reaching any surface.
+ *
+ *  Flight k (base level L=F-1-k) occupies the high cell (offset 2k+1) and the low cell
+ *  (offset 2k+2) between floors L and L+1. The whole air box must be clear — high cell at
+ *  L & L+1, low cell at L+1 — EXCEPT the low cell at L, which may be a building roof: that
+ *  is the landing (you step onto the terrace), so the run stops there. No wall is ever
+ *  crossed (only the landing cell is allowed occupied). */
+function descendFlights(
+  cells: CellMap, F: number, pi: number, pj: number, g: number, ext: Dir
+): { flights: FlightSpec[]; onRoof: boolean } | null {
+  const [tx, ty] = STEP[ext];
+  const flights: FlightSpec[] = [];
+  for (let k = 0; ; k++) {
+    const L = F - 1 - k;
+    if (L < g) return null; // ran past the ground without landing (shouldn't happen)
+    const hci = pi + tx * (2 * k + 1), hcj = pj + ty * (2 * k + 1); // high cell (offset 2k+1)
+    const lci = pi + tx * (2 * k + 2), lcj = pj + ty * (2 * k + 2); // low cell  (offset 2k+2)
+    if (occupied(cells, L, hci, hcj) || occupied(cells, L + 1, hci, hcj) || occupied(cells, L + 1, lci, lcj))
+      return null; // the flight's air box hits the building → this direction can't descend
+    flights.push({ level: L, ci: lci, cj: lcj, dir: OPP[ext] });
+    if (occupied(cells, L, lci, lcj)) return { flights, onRoof: true }; // landed on a building roof/terrace
+    if (L === g) return { flights, onRoof: false }; // landed on the ground
+    // else the low cell is mid-air → keep descending
+  }
+}
+
+/** The building direction a platform faces (its neighbour at level F is occupied), used
+ *  to prefer wall-parallel tangents. null if free-standing. */
+function inwardDir(cells: CellMap, F: number, pi: number, pj: number): Dir | null {
+  for (const dd of ALL_DIRS) {
+    const [di, dj] = STEP[dd];
+    if (occupied(cells, F, pi + di, pj + dj)) return dd;
+  }
+  return null;
+}
+
+/** Pick the descent direction: an explicit dirOverride wins if it reaches a surface;
+ *  otherwise auto-prefer landing on a building TERRACE (onRoof), then the shortest run,
+ *  then wall-parallel tangent order. null if every direction is boxed in. */
+function pickDescent(
+  cells: CellMap, F: number, pi: number, pj: number, g: number, dirOverride?: Dir
+): { ext: Dir; flights: FlightSpec[]; onRoof: boolean } | null {
+  const valid = ALL_DIRS
+    .map((ext) => ({ ext, ...(descendFlights(cells, F, pi, pj, g, ext) ?? {}) }))
+    .filter((v): v is { ext: Dir; flights: FlightSpec[]; onRoof: boolean } => 'flights' in v);
+  if (!valid.length) return null;
+  if (dirOverride) {
+    const ov = valid.find((v) => v.ext === dirOverride);
+    if (ov) return ov;
+  }
+  const order = inwardDir(cells, F, pi, pj) ? TANGENTS[inwardDir(cells, F, pi, pj)!] : ALL_DIRS;
+  const tIdx = (ext: Dir) => { const i = order.indexOf(ext); return i < 0 ? ALL_DIRS.length : i; };
+  return [...valid].sort((a, b) =>
+    (a.onRoof ? 0 : 1) - (b.onRoof ? 0 : 1) ||
+    a.flights.length - b.flights.length ||
+    tIdx(a.ext) - tIdx(b.ext)
+  )[0];
+}
+
+/** Next descent direction after the platform's current effective one — used by "rotate"
+ *  so each press jumps to a direction that actually reaches a surface (skips blocked
+ *  ones). undefined if none / boxed in. */
+export function cycleDescentDir(cells: CellMap, platformKey: string, current?: Dir): Dir | undefined {
+  const { 0: F, 1: pi, 2: pj } = platformKey.split(',').map(Number);
+  const g = levelRange(cells)[0];
+  if (F - g <= 0) return undefined;
+  const dirs = ALL_DIRS.filter((ext) => descendFlights(cells, F, pi, pj, g, ext) !== null);
+  if (!dirs.length) return undefined;
+  const eff = current && dirs.includes(current) ? current : pickDescent(cells, F, pi, pj, g)?.ext;
+  const idx = eff ? dirs.indexOf(eff) : -1;
+  return dirs[(idx + 1) % dirs.length];
+}
+
 /** Expand a drawn outdoor PLATFORM ("F,pi,pj") into a stair that descends one floor.
  *  The platform IS the landing (drawn by the user, in front of a door); the stair
  *  always stays OUTSIDE the footprint (never crosses a wall).
@@ -196,19 +276,22 @@ const ALL_DIRS: Dir[] = ['N', 'E', 'S', 'W'];
  *  if another platform sits one floor DOWN and exactly 2 cells away in some cardinal
  *  direction, this platform runs a SINGLE flight toward IT (the stair breaks at each
  *  platform; that platform carries on). Place the next platform to the LEFT vs RIGHT
- *  to fold back (switchback) vs go straight. If there is NO platform below, it falls
- *  back to a straight wall-parallel descent all the way to the ground (the "not enough
- *  platforms yet" state — may extend out). One flight spans 2 cells (model depth = 4 =
- *  2 cells), so the next platform must be exactly 2 cells over with 1 cell between. */
+ *  to fold back (switchback) vs go straight. If there is NO platform below, it descends
+ *  to the NEAREST walkable surface — a building roof/terrace, or the ground (see
+ *  descendFlights). One flight spans 2 cells (model depth = 4 = 2 cells), so the next
+ *  platform must be exactly 3 cells over (2 flight cells + the landing). */
 export function expandPlatform(
   cells: CellMap,
   platformKey: string,
-  platformKeys: Set<string> = new Set()
+  platformKeys: Set<string> = new Set(),
+  model?: string,
+  dirOverride?: Dir
 ): { stairs: Stair[] } {
   const { 0: F, 1: pi, 2: pj } = platformKey.split(',').map(Number);
   const g = levelRange(cells)[0];
   if (F - g <= 0) return { stairs: [] }; // ground-level platform → no descent
   const id = platformStairId(platformKey);
+  const tag = (s: Stair): Stair => (model ? { ...s, model } : s);
   const clear = (ci: number, cj: number, lo: number, hiL: number) => {
     for (let L = lo; L <= hiL; L++) if (occupied(cells, L, ci, cj)) return false;
     return true;
@@ -227,29 +310,16 @@ export function expandPlatform(
     // The 2 flight cells (offsets 1 & 2) must stay outside the building, at both levels.
     if (!clear(pi + dx, pj + dy, F - 1, F)) continue; // high end (offset 1, floor F)
     if (!clear(pi + 2 * dx, pj + 2 * dy, F - 1, F)) continue; // low end (offset 2, floor F-1)
-    return { stairs: [{ id, level: F - 1, ci: pi + 2 * dx, cj: pj + 2 * dy, dir: OPP[d] }] };
+    return { stairs: [tag({ id, level: F - 1, ci: pi + 2 * dx, cj: pj + 2 * dy, dir: OPP[d] })] };
   }
 
-  // (2) No platform below → straight wall-parallel descent to the ground.
-  let inward: Dir | null = null;
-  for (const dd of ALL_DIRS) {
-    const [di, dj] = STEP[dd];
-    if (occupied(cells, F, pi + di, pj + dj)) { inward = dd; break; }
-  }
-  const cands = inward ? TANGENTS[inward] : ALL_DIRS;
-  const flights = F - g;
-  for (const ext of cands) {
-    const te = STEP[ext];
-    let ok = true;
-    for (let n = 1; n <= 2 * flights && ok; n++) if (!clear(pi + te[0] * n, pj + te[1] * n, g, F)) ok = false;
-    if (!ok) continue;
-    const stairs: Stair[] = [];
-    for (let k = 0; k < flights; k++) {
-      stairs.push({ id, level: F - 1 - k, ci: pi + te[0] * (2 * k + 2), cj: pj + te[1] * (2 * k + 2), dir: OPP[ext] });
-    }
-    return { stairs };
-  }
-  return { stairs: [] }; // boxed in → just the platform
+  // (2) No drawn platform below → descend to the NEAREST walkable surface: a building
+  // roof/terrace, or the ground (whichever the run reaches first). A user dirOverride
+  // (from "rotate") wins if it reaches a surface; otherwise auto-prefer landing on a
+  // terrace, then the shortest run. (Building roofs are platforms too.)
+  const picked = pickDescent(cells, F, pi, pj, g, dirOverride);
+  if (!picked) return { stairs: [] }; // boxed in → just the platform
+  return { stairs: picked.flights.map((f) => tag({ id, ...f })) };
 }
 
 /** The building wall face a platform should turn into a door (so you can step in),

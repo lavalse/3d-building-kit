@@ -15,6 +15,7 @@ import {
   line,
   PIECE_FLOOR,
   PIECE_WALL,
+  PIECE_WALL_LOW,
   PIECE_WINDOW,
   PIECE_DOORWAY,
   PIECE_WINDOW_WIDE,
@@ -29,7 +30,7 @@ import {
   BAY,
 } from './constants';
 import { occupied, ownerAt, type CellMap } from './massing';
-import { deriveCirculation, expandPlatform, type Circulation } from './deriveCirculation';
+import { deriveCirculation, expandPlatform, platformStairId, type Circulation } from './deriveCirculation';
 import type { Dir, FaceOverride, Instance, SkinTheme } from './types';
 
 /** Per-space style map: spaceId → style. */
@@ -61,17 +62,21 @@ const RUN: Record<number, [number, number]> = {
 };
 
 type ColumnMode = 'corner' | 'grid' | 'none';
+type WallKind = 'full' | 'low' | 'none';
+const WALL_RANK: Record<WallKind, number> = { full: 2, low: 1, none: 0 };
 interface ThemeRules {
-  walls: boolean;
+  walls: WallKind;
   door: boolean;
   columns: ColumnMode;
   roof: boolean;
 }
 const THEMES: Record<SkinTheme, ThemeRules> = {
   // Load-bearing walls = structure; decorative corner posts at convex corners.
-  enclosed: { walls: true, door: true, columns: 'corner', roof: true },
+  enclosed: { walls: 'full', door: true, columns: 'corner', roof: true },
+  // Post-and-slab frame + a waist-high perimeter parapet (balcony / loggia).
+  semi: { walls: 'low', door: false, columns: 'grid', roof: true },
   // Post-and-slab frame: a regular column grid (incl. interior) carries the slabs.
-  open: { walls: false, door: false, columns: 'grid', roof: true },
+  open: { walls: 'none', door: false, columns: 'grid', roof: true },
 };
 
 /** Stable 32-bit hash of a face identity. */
@@ -126,7 +131,7 @@ export function deriveSkin(
   faceOverrides: Record<string, FaceOverride> = {},
   roofOverrides: RoofOverrides = {},
   roofFallbackCenter = false,
-  circulation: Circulation = { auto: true, seed: 0, manual: [], suppressed: [], platforms: [] }
+  circulation: Circulation = { auto: true, seed: 0, manual: [], suppressed: [], platforms: [], platformModel: {}, platformDir: {} }
 ): PieceSpec[] {
   const out: PieceSpec[] = [];
 
@@ -135,10 +140,10 @@ export function deriveSkin(
     const id = ownerAt(cells, level, i, j);
     return id ? styleBySpace[id] ?? 'enclosed' : null;
   };
-  // "enclosed" = the cell's style uses walls. Empty / open-frame cells = false.
-  const enc = (level: number, i: number, j: number): boolean => {
+  // Envelope kind of a cell: 'full' (enclosed), 'low' (semi parapet), or 'none'.
+  const wallKind = (level: number, i: number, j: number): WallKind => {
     const s = styleAt(level, i, j);
-    return s ? THEMES[s].walls : false;
+    return s ? THEMES[s].walls : 'none';
   };
   const columnMode = (level: number, i: number, j: number): ColumnMode => {
     const s = styleAt(level, i, j);
@@ -147,14 +152,19 @@ export function deriveSkin(
   // Corner posts (enclosed) hug convex corners; grid columns (open frame) below.
   const usesCorner = (level: number, i: number, j: number) => columnMode(level, i, j) === 'corner';
   const usesGrid = (level: number, i: number, j: number) => columnMode(level, i, j) === 'grid';
-  // A wall sits on a face iff this (enclosed) cell's neighbour is NOT enclosed
-  // (empty or an open region). One-sided emit → automatic dedup; same-enclosure
-  // neighbours merge into one open room.
-  const wallFace = (level: number, i: number, j: number, dir: number): boolean => {
-    if (!enc(level, i, j)) return false;
+  // An envelope piece sits on a face iff this cell's envelope is STRONGER than the
+  // neighbour's (full > low > none/empty). One-sided emit → automatic dedup; equal
+  // neighbours merge into one open room (no wall between same-kind cells). The kind
+  // emitted is this cell's: 'full' → window/door/wall, 'low' → wall-low parapet.
+  const boundaryFace = (level: number, i: number, j: number, dir: number): boolean => {
+    const here = WALL_RANK[wallKind(level, i, j)];
+    if (here === 0) return false;
     const [di, dj] = DELTA[dir];
-    return !enc(level, i + di, j + dj);
+    return here > WALL_RANK[wallKind(level, i + di, j + dj)];
   };
+  // A face that carries a FULL wall (windows/doors/entrance only apply here).
+  const fullFace = (level: number, i: number, j: number, dir: number): boolean =>
+    boundaryFace(level, i, j, dir) && wallKind(level, i, j) === 'full';
 
   // Main entrance: one door on the ground floor's front (−Z) of an enclosed region.
   const pickEntrance = (): string | null => {
@@ -174,7 +184,7 @@ export function deriveSkin(
       const { 0: lvl, 1: i, 2: j } = k.split(',').map(Number);
       if (lvl !== groundLvl) continue;
       for (const dir of DIRS) {
-        if (wallFace(groundLvl, i, j, dir)) cands.push({ i, j, dir, south: dir === S });
+        if (fullFace(groundLvl, i, j, dir)) cands.push({ i, j, dir, south: dir === S });
       }
     }
     if (!cands.length) return null;
@@ -198,7 +208,7 @@ export function deriveSkin(
   for (const fk in faceOverrides) {
     if (faceOverrides[fk] !== 'door') continue;
     const { 0: lvl, 1: i, 2: j, 3: d } = fk.split(',').map(Number);
-    if (lvl === groundLvl && fk !== entrance && wallFace(lvl, i, j, d)) groundDoors.push(fk);
+    if (lvl === groundLvl && fk !== entrance && fullFace(lvl, i, j, d)) groundDoors.push(fk);
   }
   const stairs = deriveCirculation(cells, { groundDoors }, circulation);
 
@@ -208,13 +218,14 @@ export function deriveSkin(
   const platformSet = new Set(circulation.platforms);
   for (const pk of circulation.platforms) {
     landingTiles.push(pk); // the platform itself ("F,pi,pj")
-    stairs.push(...expandPlatform(cells, pk, platformSet).stairs);
+    stairs.push(...expandPlatform(cells, pk, platformSet, circulation.platformModel?.[pk], circulation.platformDir?.[pk]).stairs);
   }
 
   // Stairwell openings: cut the floor above ONLY for interior stairs (bottom cell
   // inside the footprint). Exterior stairs land on the edge → no hole.
   const floorHoles = new Set<string>();
   for (const st of stairs) {
+    if (st.id.startsWith('platform:')) continue; // platform/exterior stair — lands on an outdoor surface (incl. a roof terrace), never cuts a hole
     if (!occupied(cells, st.level, st.ci, st.cj)) continue; // exterior → no stairwell
     const [di, dj] = STAIR_STEP[st.dir];
     floorHoles.add(`${st.level + 1},${st.ci},${st.cj}`);
@@ -247,9 +258,16 @@ export function deriveSkin(
       out.push({ pieceId: PIECE_FLOOR, x: cellCenter(i), z: cellCenter(j), floor: level, rotationY: 0 });
     }
 
-    // Walls only on faces where this enclosed cell meets a non-enclosed neighbour.
+    // Envelope on faces where this cell's wall is stronger than its neighbour's.
+    // Full walls → window/door/wall (collected for the merge pass). Low parapets
+    // (semi) → a wall-low piece emitted directly (no windows/doors/merge).
     for (const dir of DIRS) {
-      if (!wallFace(level, i, j, dir)) continue;
+      if (!boundaryFace(level, i, j, dir)) continue;
+      if (wallKind(level, i, j) === 'low') {
+        const t = faceTransform(i, j, dir);
+        out.push({ pieceId: PIECE_WALL_LOW, x: t.x, z: t.z, floor: level, rotationY: t.rotationY });
+        continue;
+      }
       const faceKey = `${level},${i},${j},${dir}`;
       const ov = faceOverrides[faceKey];
       let kind: FaceOverride;
@@ -398,10 +416,12 @@ export function deriveSkin(
     }
   }
 
-  // Exterior-tower landing platforms (outdoor floor tiles at the flight junctions).
+  // Exterior platform landings (outdoor floor tiles). Tagged with the platform's
+  // stairKey so the tile itself is selectable/deletable — otherwise a platform with
+  // no stair (drawn on the ground floor, or boxed in) would be stuck (unclickable).
   for (const lt of landingTiles) {
     const { 0: level, 1: i, 2: j } = lt.split(',').map(Number);
-    out.push({ pieceId: PIECE_FLOOR, x: cellCenter(i), z: cellCenter(j), floor: level, rotationY: 0 });
+    out.push({ pieceId: PIECE_FLOOR, x: cellCenter(i), z: cellCenter(j), floor: level, rotationY: 0, stairKey: platformStairId(lt) });
   }
 
   // Stairs (circulation layer): one flight per stair, rising level → level+1,
@@ -409,7 +429,7 @@ export function deriveSkin(
   for (const st of stairs) {
     const [di, dj] = STAIR_STEP[st.dir];
     out.push({
-      pieceId: PIECE_STAIRS,
+      pieceId: st.model ?? PIECE_STAIRS,
       x: (cellCenter(st.ci) + cellCenter(st.ci + di)) / 2,
       z: (cellCenter(st.cj) + cellCenter(st.cj + dj)) / 2,
       floor: st.level,

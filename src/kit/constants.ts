@@ -20,6 +20,7 @@ export const BAY = 2; // open-frame column-grid spacing, in cells (2 cells = 4m)
 // Piece ids used by the auto-skinner.
 export const PIECE_FLOOR = 'floor';
 export const PIECE_WALL = 'wall';
+export const PIECE_WALL_LOW = 'wall-low'; // waist-high (1.2) parapet for semi-open spaces
 export const PIECE_WINDOW = 'wall-window-square';
 export const PIECE_DOORWAY = 'wall-doorway-square';
 export const PIECE_WINDOW_WIDE = 'wall-window-wide-square'; // spans 2 cells (Z=4)
@@ -30,6 +31,9 @@ export const PIECE_DOOR_LEAF = 'door-rotate-square-a';
 export const DOOR_LEAF_OFFSET = 0.387;
 export const PIECE_COLUMN = 'column';
 export const PIECE_STAIRS = 'stairs-open'; // 1.3×2.5×4 → 2 cells deep, ~1 floor tall
+// Same 2-cell footprint as stairs-open → drop-in swappable models for a flight.
+export const PIECE_STAIRS_CENTER = 'stairs-center';
+export const PIECE_STAIRS_CLOSED = 'stairs-closed';
 export const PIECE_ROOF_CENTER = 'roof-flat-center';
 export const PIECE_BORDER = 'border'; // low perimeter rail (parapet) along the roof outline
 

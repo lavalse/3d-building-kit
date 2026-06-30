@@ -37,8 +37,9 @@ export interface Space {
 
 // Structural/enclosure typology of a space (not a building program):
 //   enclosed = load-bearing walls form the envelope (walls ARE the structure)
+//   semi     = post-and-slab frame + a waist-high perimeter parapet (balcony/loggia)
 //   open     = post-and-slab frame: a regular column grid carries floor/roof, no walls
-export type SkinTheme = 'enclosed' | 'open';
+export type SkinTheme = 'enclosed' | 'semi' | 'open';
 
 export type Tool = 'select' | 'space' | 'erase' | 'stair';
 
@@ -53,6 +54,7 @@ export interface Stair {
   ci: number;
   cj: number;
   dir: Dir;
+  model?: string; // pieceId of the stair model to emit (default: stairs-open)
 }
 
 /** Per-face manual override of the auto-skin (set via the select tool).

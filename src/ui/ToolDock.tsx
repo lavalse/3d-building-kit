@@ -8,10 +8,12 @@ const TOOLS: { id: Tool; label: string; icon: string }[] = [
   { id: 'erase', label: '擦除', icon: '🧽' },
 ];
 
-// Structural type of a space (not a building program): closed walls vs open frame.
+// Structural/enclosure type of a space (not a building program): full walls →
+// waist-high parapet → bare frame.
 const STYLES: { id: SkinTheme; label: string; icon: string }[] = [
   { id: 'enclosed', label: '封闭', icon: '🧱' },
-  { id: 'open', label: '开放', icon: '🏗️' },
+  { id: 'semi', label: '半开放', icon: '🚧' },
+  { id: 'open', label: '开放', icon: '🏛️' },
 ];
 
 // Face actions for the selection (select tool). 'auto' clears the override.
@@ -20,6 +22,13 @@ const FACE_STYLES: { id: FaceOverride | 'auto'; label: string; icon: string }[] 
   { id: 'door', label: '门', icon: '🚪' },
   { id: 'wall', label: '实墙', icon: '🧱' },
   { id: 'auto', label: '自动', icon: '↺' },
+];
+
+// Swappable stair models for a selected platform tower (all 2-cell, drop-in).
+const STAIR_MODELS: { id: string; label: string; icon: string }[] = [
+  { id: 'stairs-open', label: '开放', icon: '🪜' },
+  { id: 'stairs-center', label: '中柱', icon: '🗼' },
+  { id: 'stairs-closed', label: '实心', icon: '🧱' },
 ];
 
 /** Bottom-center floating dock (game quick-build style). Tools + a context panel:
@@ -34,9 +43,14 @@ export function ToolDock() {
   const selCount = useBuildStore((s) => s.selectedKeys.length);
   const selectedStairId = useBuildStore((s) => s.selectedStairId);
   const removeStair = useBuildStore((s) => s.removeStair);
+  const setPlatformModel = useBuildStore((s) => s.setPlatformModel);
+  const rotatePlatformDir = useBuildStore((s) => s.rotatePlatformDir);
   const autoStairs = useBuildStore((s) => s.circulation.auto);
   const rerollStairs = useBuildStore((s) => s.rerollStairs);
   const toggleAutoStairs = useBuildStore((s) => s.toggleAutoStairs);
+  // The selected stair's current model (only platform towers carry one).
+  const platformKey = selectedStairId?.startsWith('platform:') ? selectedStairId.slice('platform:'.length) : null;
+  const selModel = useBuildStore((s) => (platformKey ? s.circulation.platformModel[platformKey] ?? 'stairs-open' : null));
   // Common face style across the selection (null = mixed / none).
   const selKind = useBuildStore((s) => {
     if (!s.selectedKeys.length) return null;
@@ -124,6 +138,25 @@ export function ToolDock() {
           <>
             <div className="dock-divider" />
             <div className="dock-group">
+              {/* Platform towers: swap model + rotate which edge it descends. */}
+              {platformKey &&
+                STAIR_MODELS.map((m) => (
+                  <button
+                    key={m.id}
+                    className={'chip' + (selModel === m.id ? ' active' : '')}
+                    onClick={() => setPlatformModel(platformKey, m.id)}
+                    title={`楼梯样式：${m.label}`}
+                  >
+                    <span className="dock-icon">{m.icon}</span>
+                    <span className="dock-label">{m.label}</span>
+                  </button>
+                ))}
+              {platformKey && (
+                <button className="chip" onClick={() => rotatePlatformDir(platformKey)} title="旋转下行方向(循环四条边)">
+                  <span className="dock-icon">🔄</span>
+                  <span className="dock-label">旋转</span>
+                </button>
+              )}
               <button className="chip" onClick={() => removeStair(selectedStairId)} title="删除这部楼梯">
                 <span className="dock-icon">🗑️</span>
                 <span className="dock-label">删除</span>

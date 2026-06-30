@@ -59,9 +59,27 @@ Consequences, burned into the geometry:
   landing at offset 3** — *beyond* the flight, so you step off onto it.
 - **Direction follows the user's placement.** Place the next platform LEFT vs RIGHT to
   **fold back (switchback)** vs **go straight**. The stair *breaks* at each platform.
-- A platform with **nothing below** falls back to a straight wall-parallel descent to the
-  ground (the "not enough platforms yet" state — may extend past the building; accepted).
-- Exterior stairs cut **no** floor hole (they land on the edge / platform).
+- A platform with **no drawn platform below** descends to the **nearest walkable surface**:
+  a **building roof / terrace**, or the **ground** — whichever the run reaches first
+  (`descendFlights`). **Building roofs are platforms too** — a setback's roof is a valid
+  landing, so the stair stops on the terrace instead of being forced down to the ground.
+  Each flight's air box is validated clear (high cell at L & L+1, low cell at L+1); the
+  **only** cell allowed occupied is the low cell at its own level — that's the roof it
+  lands on. **Auto-direction prefers** a terrace landing, then the shortest run, then the
+  wall-parallel tangent; the user can `rotate` among the directions that actually reach a
+  surface (`cycleDescentDir`). Note the 2-cell stair depth means the terrace edge must be
+  reachable across a clear gap (same constraint as platform-to-platform chaining).
+- Exterior stairs cut **no** floor hole — they land on an outdoor surface (edge, drawn
+  platform, **or a roof terrace**). Hole-cutting in `deriveSkin` explicitly skips any
+  `platform:*` stair, so a roof landing never punches the terrace.
+- **Per-platform overrides** (select the tower → dock chips), keyed by platform key:
+  - `circulation.platformModel[key]` — stair pieceId. `stairs-open` (default, skeletal),
+    `stairs-center`, `stairs-closed` are all **2 cells deep → drop-in swappable**.
+    `stairs-sides` (railings) is **3 cells deep** → different footprint, **deferred**.
+    Flows via `Stair.model`; deriveSkin emits `st.model ?? PIECE_STAIRS`.
+  - `circulation.platformDir[key]` ("rotate") — forces which edge a **straight** descent
+    leaves by; used only if that direction's run is clear, else auto. Chained towers
+    ignore it (the next platform's placement decides direction).
 
 ## 4. Hard invariants
 
@@ -69,8 +87,11 @@ Consequences, burned into the geometry:
   flight cells are validated clear at every spanned level.
 - **A platform is the flat landing BEYOND the flight (offset 3), never on a sloped flight
   cell (offset 2).** Offset 2 buries the platform under the stair — that was a bug.
-- **Interior vs exterior is intrinsic**: a stair whose bottom cell is *inside* the
-  footprint is interior (cuts a hole); *outside* is exterior (no hole).
+- **Interior vs exterior is by source, not geometry**: interior auto-cores (`auto:*` /
+  manual ids) cut a stairwell hole; **`platform:*` stairs never do** — even when a roof
+  landing puts their bottom cell *inside* the footprint, they sit ON the terrace, not
+  through it. (The old "bottom cell occupied → interior" heuristic broke once stairs could
+  land on roofs, so hole-cutting now keys off the `platform:` id, not occupancy.)
 - Circulation is **additive** — it never changes wall/column/roof/style logic.
 
 ## 5. Pitfalls & lessons (do not repeat)

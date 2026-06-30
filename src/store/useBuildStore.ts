@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { WALL_HEIGHT } from '../kit/constants';
 import { deriveSkin, type StyleBySpace } from '../kit/deriveSkin';
-import { type Circulation, platformDoorFace } from '../kit/deriveCirculation';
+import { type Circulation, platformDoorFace, cycleDescentDir } from '../kit/deriveCirculation';
 import { eraseRect, fillRect, groundLevelOfCells, normalizeRect, type CellMap } from '../kit/massing';
 import type { Dir, FaceOverride, Instance, PieceDef, SkinTheme, Stair, Tool } from '../kit/types';
 
@@ -23,7 +23,7 @@ type Snapshot = {
 };
 const MAX_HISTORY = 50;
 
-const emptyCirculation = (): Circulation => ({ auto: true, seed: 0, manual: [], suppressed: [], platforms: [] });
+const emptyCirculation = (): Circulation => ({ auto: true, seed: 0, manual: [], suppressed: [], platforms: [], platformModel: {}, platformDir: {} });
 const isAutoStair = (id: string) => id.startsWith('auto:');
 const isPlatformStair = (id: string) => id.startsWith('platform:');
 // Parse an auto stair id "auto:level,ci,cj,dir" back into its fields.
@@ -114,6 +114,8 @@ interface BuildState {
   eraseCells: (ai: number, aj: number, bi: number, bj: number) => void;
   addStair: (ci: number, cj: number, dir: Dir) => void;
   addPlatform: (ci: number, cj: number) => void;
+  setPlatformModel: (platformKey: string, model: string) => void;
+  rotatePlatformDir: (platformKey: string) => void;
   rotateStair: (id: string) => void;
   removeStair: (id: string) => void;
   rerollStairs: () => void;
@@ -315,6 +317,17 @@ export const useBuildStore = create<BuildState>()(
             return { faceOverrides, circulation: { ...c, platforms: [...c.platforms, key] } };
           });
         },
+        // Swap the stair model for a platform tower (its `platform:<key>` group).
+        setPlatformModel: (platformKey, model) =>
+          commit((s) => ({ circulation: { ...s.circulation, platformModel: { ...s.circulation.platformModel, [platformKey]: model } } })),
+        // Rotate which edge a platform's straight descent goes down — jumps to the next
+        // CLEAR (buildable) direction so every press changes something (skips blocked ones).
+        rotatePlatformDir: (platformKey) =>
+          commit((s) => {
+            const next = cycleDescentDir(s.cells, platformKey, s.circulation.platformDir[platformKey]);
+            if (!next) return {}; // boxed in on every side → nothing to rotate to
+            return { circulation: { ...s.circulation, platformDir: { ...s.circulation.platformDir, [platformKey]: next } } };
+          }),
         // Rotate climb direction (N→E→S→W). Manual: in place. Auto: promote to a manual
         // (locked) stair at that spot with the next dir, and suppress the auto flight.
         rotateStair: (id) => {
@@ -351,7 +364,9 @@ export const useBuildStore = create<BuildState>()(
             const c = s.circulation;
             if (isPlatformStair(id)) {
               const key = id.slice('platform:'.length);
-              return { circulation: { ...c, platforms: c.platforms.filter((p) => p !== key) } };
+              const platformModel = { ...c.platformModel }; delete platformModel[key];
+              const platformDir = { ...c.platformDir }; delete platformDir[key];
+              return { circulation: { ...c, platforms: c.platforms.filter((p) => p !== key), platformModel, platformDir } };
             }
             if (isAutoStair(id)) {
               return c.suppressed.includes(id)
@@ -403,9 +418,10 @@ export const useBuildStore = create<BuildState>()(
               data && typeof data.cells === 'object' && data.cells ? data.cells : {};
             // Accept new {circulation} or legacy {stairs:[]} (→ manual).
             const circulation: Circulation = data.circulation
-              ? { auto: data.circulation.auto ?? true, seed: data.circulation.seed ?? 0,
+              ? { ...emptyCirculation(), ...data.circulation,
                   manual: data.circulation.manual ?? [], suppressed: data.circulation.suppressed ?? [],
-                  platforms: data.circulation.platforms ?? [] }
+                  platforms: data.circulation.platforms ?? [],
+                  platformModel: data.circulation.platformModel ?? {}, platformDir: data.circulation.platformDir ?? {} }
               : { ...emptyCirculation(), manual: Array.isArray(data.stairs) ? data.stairs : [] };
             commit(() => ({
               cells,
@@ -441,8 +457,9 @@ export const useBuildStore = create<BuildState>()(
         for (const k in oldStyles) styleBySpace[k] = mapStyle(oldStyles[k]);
         const circ = s.circulation as Circulation | undefined;
         const circulation: Circulation = circ
-          ? { auto: circ.auto ?? true, seed: circ.seed ?? 0, manual: circ.manual ?? [],
-              suppressed: circ.suppressed ?? [], platforms: circ.platforms ?? [] }
+          ? { ...emptyCirculation(), ...circ, manual: circ.manual ?? [],
+              suppressed: circ.suppressed ?? [], platforms: circ.platforms ?? [],
+              platformModel: circ.platformModel ?? {}, platformDir: circ.platformDir ?? {} }
           : { ...emptyCirculation(), manual: Array.isArray(s.stairs) ? (s.stairs as Stair[]) : [] };
         return {
           cells: (s.cells ?? {}) as CellMap,
