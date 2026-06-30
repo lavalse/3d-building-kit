@@ -201,16 +201,30 @@ export function deriveSkin(
   };
   const entrance = pickEntrance();
 
-  // Circulation. Ground doors anchor the interior auto-core; face-attached exterior
-  // stair-towers (circulation.attachments) are expanded separately.
-  const groundDoors: string[] = [];
-  if (entrance) groundDoors.push(entrance);
-  for (const fk in faceOverrides) {
-    if (faceOverrides[fk] !== 'door') continue;
-    const { 0: lvl, 1: i, 2: j, 3: d } = fk.split(',').map(Number);
-    if (lvl === groundLvl && fk !== entrance && fullFace(lvl, i, j, d)) groundDoors.push(fk);
+  // The kind a FULL boundary face resolves to: explicit override, else the auto entrance
+  // door, else the deterministic window/wall hash (~70% window). Shared by the wall-merge
+  // pass and the openings set below.
+  const autoFaceKind = (level: number, i: number, j: number, dir: number): FaceOverride => {
+    const faceKey = `${level},${i},${j},${dir}`;
+    const ov = faceOverrides[faceKey];
+    if (ov) return ov;
+    if (entrance && faceKey === entrance) return 'door';
+    return faceHash(i, j, level, dir) % 100 < 70 ? 'window' : 'wall';
+  };
+
+  // Circulation. The interior auto-core avoids ground-floor OPENINGS (windows + doors) so
+  // it tucks into a windowless corner instead of facing the entrance.
+  const openFaces = new Set<string>();
+  for (const k of Object.keys(cells)) {
+    const { 0: lvl, 1: i, 2: j } = k.split(',').map(Number);
+    if (lvl !== groundLvl) continue;
+    for (const dir of DIRS) {
+      if (!fullFace(groundLvl, i, j, dir)) continue;
+      const kind = autoFaceKind(groundLvl, i, j, dir);
+      if (kind === 'window' || kind === 'door') openFaces.add(`${groundLvl},${i},${j},${dir}`);
+    }
   }
-  const stairs = deriveCirculation(cells, { groundDoors }, circulation);
+  const stairs = deriveCirculation(cells, { openFaces }, circulation);
 
   // Drawn outdoor platforms: each emits its platform tile + an auto stair that
   // descends to the next platform below it (chaining into one system) or the ground.
@@ -270,10 +284,7 @@ export function deriveSkin(
       }
       const faceKey = `${level},${i},${j},${dir}`;
       const ov = faceOverrides[faceKey];
-      let kind: FaceOverride;
-      if (ov) kind = ov; // explicit window/door/wall — mergeable for window/door
-      else if (entrance && faceKey === entrance) kind = 'door'; // auto entrance, single
-      else kind = faceHash(i, j, level, dir) % 100 < 70 ? 'window' : 'wall'; // auto, single
+      const kind = autoFaceKind(level, i, j, dir); // override / entrance / window-or-wall hash
       faces.push({ level, i, j, dir, kind, merge: ov === 'window' || ov === 'door' });
     }
 

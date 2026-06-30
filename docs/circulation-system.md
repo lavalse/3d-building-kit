@@ -31,19 +31,38 @@ Consequences, burned into the geometry:
 - **Both of a flight's 2 cells are sloped — neither is flat.** A landing must therefore be
   a **separate flat floor cell**, never one of the flight's cells.
 
-> ⚠️ Before changing any stair math, re-confirm these numbers against the GLB. Guessing
-> the cell count (is it 1 cell? 2? where's the landing?) is exactly what caused repeated
-> rework (stairs jamming the door, platforms buried under the flight, chains not linking).
+### Foot / top orientation + the HARD invariant (the part that keeps biting us)
+
+A flight is placed centered across its 2-cell run `A=(ci,cj) → B=(ci+di,cj+dj)`
+(`[di,dj]=STEP[dir]`), **high end (the full-height step) pointing along `dir`** (deriveSkin:
+`x/z = midpoint(A,B)`, `rotationY = STAIR_ROT[dir]`). Therefore:
+
+- **FOOT = low end, at A's `−dir` edge.** You step onto it from the cell **behind the foot:
+  `(ci−di, cj−dj)`** — this *approach* cell (on the flight's base level) **must be open floor**.
+- **TOP = high end, at B's `+dir` edge.** You emerge on `level+1` and step off onto a floor
+  **neighbour of B** (forward `(ci+2di,cj+2dj)` or a side) — this *exit* **must be open floor**.
+
+> ⚠️ **INVARIANT — every stair needs open space at BOTH ends (foot approach + top exit).**
+> Enforced by `flightUsable()` in `deriveCirculation.ts`; reuse it for any new stair code.
+> The recurring bug (stairs jamming the door / **starting at the wall root** / platforms buried
+> under the flight) is always a violation of this. Before changing any stair math, re-confirm
+> the numbers against the GLB **and** that both ends still have their floor cell.
 
 ## 3. Layout rules
 
 **Interior auto-core** (`deriveCirculation` → `coreAt`):
-- One vertical core per building, anchored at a ground **door**, climbing inward, stacked
-  per level; `seed`-chosen among candidates, re-rollable.
-- The door-anchored foot is **pulled one cell IN** from the door, leaving the door cell as
-  a flat **approach** (otherwise the first step jams the threshold). Falls back to
-  foot-at-door if the building is too shallow.
-- deriveSkin cuts the stairwell hole on `level+1` for interior stairs.
+- One vertical core per building, **solid model** (`stairs-closed`, set in `coreAt`),
+  climbing inward, stacked per level (`coreAt` emits a flight only where a floor exists on
+  `L` and `L+1` → the core only appears where there's an upper storey).
+- **Placement is scored under the foot/top invariant, not door-anchored.** Candidates are
+  hard-filtered by `flightUsable` (foot has an approach cell, top can step off — §2), so the
+  stair **never starts at a wall root**. Among usable spots, score
+  `(side-tucked-against-wall?4:0) + (that side is a windowless wall?3:0)` (deriveSkin passes
+  `openFaces` = ground-floor window/door faceKeys). So the default is a stair **alongside a
+  windowless wall with its foot facing the room**, not facing the entrance. `seed` cycles the
+  ranked list (re-roll). A building too small to fit *approach + 2-cell run* (e.g. 2×2) gets
+  **no** auto interior core (draw an exterior platform stair instead).
+- deriveSkin cuts the stairwell hole on `level+1` for interior (`auto:*`/manual) stairs.
 
 **Exterior — drawn platforms, chained by placement** (`expandPlatform`):
 - The user draws **platforms** (flat landings) on the facade grid (`circulation.platforms`);
@@ -72,6 +91,9 @@ Consequences, burned into the geometry:
 - Exterior stairs cut **no** floor hole — they land on an outdoor surface (edge, drawn
   platform, **or a roof terrace**). Hole-cutting in `deriveSkin` explicitly skips any
   `platform:*` stair, so a roof landing never punches the terrace.
+- **Removal**: select the tower → Delete (removes the `platform:<key>` group), OR the
+  **erase tool** — dragging the rect over a platform's landing cell drops it from
+  `circulation.platforms` (and cleans its `platformModel`/`platformDir`).
 - **Per-platform overrides** (select the tower → dock chips), keyed by platform key:
   - `circulation.platformModel[key]` — stair pieceId. `stairs-open` (default, skeletal),
     `stairs-center`, `stairs-closed` are all **2 cells deep → drop-in swappable**.

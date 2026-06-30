@@ -70,6 +70,11 @@ on top of the cornice**:
   **nothing built on top** (no cell occupied at `level+1`). So **drawing a space above it / 
   stacking a floor on it → the roof is dropped** (draw a fresh one); erasing its whole surface
   drops it too. An L-shaped notch (occupied at neither `level` nor `level+1`) is tolerated.
+- **Erase** (area eraser, `eraseCells`): a drag rect also removes any roof it touches — at the
+  active level, or at the level below when that level has nothing to erase (you're erasing the
+  empty floor above the building → wipes just the roof, mirroring drawing it from above).
+  Removal is on rect *intersection* (roofs are atomic regions). `select → Delete` still removes
+  one roof precisely.
 
 ## 5. Known limitations (v1, not bugs)
 

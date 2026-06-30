@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { WALL_HEIGHT } from '../kit/constants';
+import { WALL_HEIGHT, PIECE_STAIRS_CLOSED } from '../kit/constants';
 import { deriveSkin, type StyleBySpace } from '../kit/deriveSkin';
 import { type Circulation, platformDoorFace, cycleDescentDir } from '../kit/deriveCirculation';
 import { eraseRect, fillRect, groundLevelOfCells, normalizeRect, type CellMap } from '../kit/massing';
@@ -315,25 +315,49 @@ export const useBuildStore = create<BuildState>()(
             styleBySpace: { ...s.styleBySpace, [id]: style },
           }));
         },
+        // Area eraser: wipe everything anchored in the dragged rect on the active level —
+        // cells, manual stairs, exterior platform stairs, and drawn roofs. Auto interior
+        // stairs re-derive; pruneRoofs (in commit) mops up any roof left orphaned.
         eraseCells: (ai, aj, bi, bj) => {
           const level = get().activeLevel;
           const r = normalizeRect(ai, aj, bi, bj);
           const inRect = (lvl: number, ci: number, cj: number) =>
             lvl === level && ci >= r.ci0 && ci <= r.ci1 && cj >= r.cj0 && cj <= r.cj1;
-          commit((s) => ({
-            cells: eraseRect(s.cells, level, ai, aj, bi, bj),
-            // Drop any manual stair whose bottom cell sits in the erased rect (autos re-derive).
-            circulation: {
-              ...s.circulation,
-              manual: s.circulation.manual.filter((st) => !inRect(st.level, st.ci, st.cj)),
-            },
-          }));
+          const rectHitsRoof = (rf: RoofRegion) =>
+            Math.min(rf.ci0, rf.ci1) <= r.ci1 && Math.max(rf.ci0, rf.ci1) >= r.ci0 &&
+            Math.min(rf.cj0, rf.cj1) <= r.cj1 && Math.max(rf.cj0, rf.cj1) >= r.cj0;
+          commit((s) => {
+            // Is there anything to erase at this level inside the rect? (drives roof scope)
+            let erasedAtLevel = false;
+            for (let i = r.ci0; i <= r.ci1 && !erasedAtLevel; i++)
+              for (let j = r.cj0; j <= r.cj1; j++)
+                if (s.cells[`${level},${i},${j}`]) { erasedAtLevel = true; break; }
+            // Platform stairs whose landing cell is in the rect → drop + clean their overrides.
+            const c = s.circulation;
+            const platforms = c.platforms.filter((key) => {
+              const { 0: pl, 1: pi, 2: pj } = key.split(',').map(Number);
+              return !inRect(pl, pi, pj);
+            });
+            const platformModel = { ...c.platformModel };
+            const platformDir = { ...c.platformDir };
+            for (const key of c.platforms) if (!platforms.includes(key)) { delete platformModel[key]; delete platformDir[key]; }
+            // Roofs the rect touches: this level always; the level below only when we're
+            // erasing empty air above a building (mirrors "draw a roof from the level above").
+            const roofs = s.roofs.filter(
+              (rf) => !(rectHitsRoof(rf) && (rf.level === level || (rf.level === level - 1 && !erasedAtLevel)))
+            );
+            return {
+              cells: eraseRect(s.cells, level, ai, aj, bi, bj),
+              circulation: { ...c, manual: c.manual.filter((st) => !inRect(st.level, st.ci, st.cj)), platforms, platformModel, platformDir },
+              roofs,
+            };
+          });
         },
         // Manually add a locked stair from the active level up to the next.
         addStair: (ci, cj, dir) => {
           const level = get().activeLevel;
           commit((s) => ({
-            circulation: { ...s.circulation, manual: [...s.circulation.manual, { id: uid(), level, ci, cj, dir }] },
+            circulation: { ...s.circulation, manual: [...s.circulation.manual, { id: uid(), level, ci, cj, dir, model: PIECE_STAIRS_CLOSED }] },
           }));
         },
         // Draw an outdoor landing platform at the active level (empty cell only); a
@@ -422,7 +446,7 @@ export const useBuildStore = create<BuildState>()(
                 circulation: {
                   ...c,
                   suppressed: c.suppressed.includes(id) ? c.suppressed : [...c.suppressed, id],
-                  manual: [...c.manual, { id: uid(), level: a.level, ci: a.ci, cj: a.cj, dir: nextDir }],
+                  manual: [...c.manual, { id: uid(), level: a.level, ci: a.ci, cj: a.cj, dir: nextDir, model: PIECE_STAIRS_CLOSED }],
                 },
               };
             }

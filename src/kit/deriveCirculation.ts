@@ -1,15 +1,17 @@
 // Circulation layer (vertical): turn the plan + its openings into stairs.
 //
 // PHILOSOPHY: circulation is DERIVED, not hand-planned. Wherever a building has a
-// floor above, the system auto-places a vertical stair CORE — anchored at a door
-// (the door thus gains meaning), climbing inward, the same plan position stacked
-// on every level (a real "交通核"). It is deterministic in a `seed` so the user
-// can "re-roll" to another valid core, and layered with overrides:
+// floor above, the system auto-places a vertical stair CORE — a SOLID stair tucked
+// into a windowless corner (scored placement, climbing inward, backing onto a wall;
+// it avoids the entrance/windows), the same plan position stacked on every level (a
+// real "交通核"). It is deterministic in a `seed` so the user can "re-roll" to
+// another valid core, and layered with overrides:
 //   manual[]     — user-drawn stairs, always kept (locked)
 //   suppressed[] — auto cores the user deleted, by stable id
 // Same inputs → same output (mirrors the auto window/door + faceOverrides model).
 
 import { occupied, type CellMap } from './massing';
+import { PIECE_STAIRS_CLOSED } from './constants';
 import type { Dir, Stair } from './types';
 
 export interface Circulation {
@@ -23,8 +25,8 @@ export interface Circulation {
 }
 
 const STEP: Record<Dir, [number, number]> = { N: [0, 1], S: [0, -1], E: [1, 0], W: [-1, 0] };
-// Numeric face dir (deriveSkin: W=0,E=1,S=2,N=3) → letter; inward = opposite normal.
-const FACE_LETTER: Record<number, Dir> = { 0: 'W', 1: 'E', 2: 'S', 3: 'N' };
+// Letter face dir → numeric (deriveSkin faceKey: W=0,E=1,S=2,N=3).
+const DIR_NUM: Record<Dir, number> = { W: 0, E: 1, S: 2, N: 3 };
 const OPP: Record<Dir, Dir> = { N: 'S', S: 'N', E: 'W', W: 'E' };
 const DIR_ORDER: Dir[] = ['N', 'E', 'S', 'W'];
 
@@ -74,10 +76,9 @@ function footprintComponents(cells: CellMap): Map<string, number> {
   return comp;
 }
 
-type Candidate = { ci: number; cj: number; dir: Dir; comp: number; stairs: Stair[]; door: boolean };
-
 /** Build a vertical core at (ci,cj) climbing `dir`: a flight on every level L in
- *  [lo, hi-1] where both run cells exist on L and L+1. Empty if it supports none. */
+ *  [lo, hi-1] where both run cells exist on L and L+1. Empty if it supports none.
+ *  Interior cores default to the SOLID stair model. */
 function coreAt(cells: CellMap, ci: number, cj: number, dir: Dir, lo: number, hi: number): Stair[] {
   const [di, dj] = STEP[dir];
   const stairs: Stair[] = [];
@@ -85,18 +86,15 @@ function coreAt(cells: CellMap, ci: number, cj: number, dir: Dir, lo: number, hi
     const validBottom = occupied(cells, L, ci, cj) && occupied(cells, L, ci + di, cj + dj);
     const validLanding = occupied(cells, L + 1, ci, cj) && occupied(cells, L + 1, ci + di, cj + dj);
     if (validBottom && validLanding) {
-      stairs.push({ id: autoStairId(L, ci, cj, dir), level: L, ci, cj, dir });
+      stairs.push({ id: autoStairId(L, ci, cj, dir), level: L, ci, cj, dir, model: PIECE_STAIRS_CLOSED });
     }
   }
   return stairs;
 }
 
-const sortCandidates = (a: Candidate, b: Candidate) =>
-  a.ci - b.ci || a.cj - b.cj || DIR_ORDER.indexOf(a.dir) - DIR_ORDER.indexOf(b.dir);
-
-/** Openings that drive the interior auto-core (computed by deriveSkin). */
+/** Openings that steer the interior auto-core (computed by deriveSkin). */
 export interface Openings {
-  groundDoors: string[]; // ground-level door faceKeys → interior core anchors
+  openFaces: Set<string>; // ground-level window/door faceKeys "level,ci,cj,dir" — the core avoids these
 }
 
 /** Resolve interior circulation: manual stairs (always) + one auto interior core
@@ -123,58 +121,56 @@ export function deriveCirculation(cells: CellMap, openings: Openings, circ: Circ
     out.push(st);
   };
 
-  // One interior core per building, chosen by seed: ground-door anchored (default,
-  // ranked first) + interior perimeter cells (re-roll variety).
-  const doorCands: Candidate[] = [];
-  for (const f of openings.groundDoors) {
-    const [, i, j, d] = f.split(',').map(Number);
-    const dir = OPP[FACE_LETTER[d]]; // climb inward, away from the door
+  // One interior core per building. HARD INVARIANT (see the stair-geometry note below): a
+  // flight is usable only if its FOOT has an approach cell to step onto and its TOP can step
+  // off — never jam a wall at the foot. Among usable spots, prefer the stair tucked alongside
+  // a (windowless) wall with its foot facing the room. seed cycles the ranked list (re-roll).
+  const isOpen = (i: number, j: number, dir: Dir) => openings.openFaces.has(`${lo},${i},${j},${DIR_NUM[dir]}`);
+  const isExterior = (i: number, j: number, dir: Dir) => {
     const [di, dj] = STEP[dir];
-    // Foot one cell IN from the door, so you step through the door onto a flat
-    // approach cell (the door cell) before the stairs start — the stairs-open
-    // model has no built-in landing, so without this the first step jams the door.
-    let fi = i + di, fj = j + dj;
-    let stairs = coreAt(cells, fi, fj, dir, lo, hi);
-    if (!stairs.length) {
-      // Building too shallow for an approach cell → fall back to foot at the door.
-      fi = i; fj = j;
-      stairs = coreAt(cells, fi, fj, dir, lo, hi);
-    }
-    if (stairs.length) doorCands.push({ ci: fi, cj: fj, dir, comp: compOf(i, j), stairs, door: true });
-  }
-  const isPerimeter = (i: number, j: number) =>
-    [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([di, dj]) => !occupied(cells, lo, i + di, j + dj));
-  const interiorPerimeter = (component: number): Candidate[] => {
-    const cands: Candidate[] = [];
-    const seen = new Set<string>();
-    for (const k in cells) {
-      const [, i, j] = k.split(',').map(Number);
-      if (compOf(i, j) !== component || !isPerimeter(i, j) || seen.has(`${i},${j}`)) continue;
-      seen.add(`${i},${j}`);
-      for (const dir of DIR_ORDER) {
-        const stairs = coreAt(cells, i, j, dir, lo, hi);
-        if (stairs.length) cands.push({ ci: i, cj: j, dir, comp: component, stairs, door: false });
-      }
-    }
-    return cands;
+    return !occupied(cells, lo, i + di, j + dj);
   };
+  // STAIR GEOMETRY (verified against deriveSkin placement): the piece spans A=(ci,cj) →
+  // B=(ci+di,cj+dj) centered, high end (full step) toward `dir`. The FOOT is at A's −dir
+  // edge → you step onto it from (ci−di,cj−dj). The TOP is at B's +dir edge → you emerge on
+  // L+1 and step off a floor neighbour of B. BOTH ends must be open floor, or the stair is
+  // unwalkable (foot-at-the-wall). This predicate is the invariant — reuse it for any stair.
+  const flightUsable = (ci: number, cj: number, dir: Dir): boolean => {
+    const [di, dj] = STEP[dir];
+    if (!occupied(cells, lo, ci - di, cj - dj)) return false; // foot approach on the bottom level
+    const bi = ci + di, bj = cj + dj; // top cell B; step off onto a floor neighbour on lo+1
+    const offs = [STEP[dir], STEP[TANGENTS[dir][0]], STEP[TANGENTS[dir][1]]]; // forward + the two sides
+    return offs.some(([ex, ey]) => occupied(cells, lo + 1, bi + ex, bj + ey));
+  };
+  type Scored = { ci: number; cj: number; dir: Dir; stairs: Stair[]; score: number };
 
   const components = new Set<number>();
   for (const v of comp.values()) components.add(v);
   for (const c of components) {
-    const seen = new Set<string>();
-    const pool: Candidate[] = [];
-    for (const cand of [
-      ...doorCands.filter((d) => d.comp === c).sort(sortCandidates),
-      ...interiorPerimeter(c).sort(sortCandidates),
-    ]) {
-      const key = `${cand.ci},${cand.cj},${cand.dir}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      pool.push(cand);
+    const cands: Scored[] = [];
+    const seenCell = new Set<string>();
+    for (const k in cells) {
+      const [, i, j] = k.split(',').map(Number);
+      if (compOf(i, j) !== c || seenCell.has(`${i},${j}`)) continue;
+      seenCell.add(`${i},${j}`);
+      for (const dir of DIR_ORDER) {
+        const stairs = coreAt(cells, i, j, dir, lo, hi); // stair body + "needs a floor above"
+        if (!stairs.length || !flightUsable(i, j, dir)) continue; // INVARIANT: foot + top have space
+        // Tuck: a perpendicular SIDE of the 2-cell run sits against a (windowless) exterior wall.
+        const [di, dj] = STEP[dir];
+        let sideTuck = false, windowlessSide = false;
+        for (const p of TANGENTS[dir])
+          for (const [ci2, cj2] of [[i, j], [i + di, j + dj]])
+            if (isExterior(ci2, cj2, p)) { sideTuck = true; if (!isOpen(ci2, cj2, p)) windowlessSide = true; }
+        const score = (sideTuck ? 4 : 0) + (windowlessSide ? 3 : 0);
+        cands.push({ ci: i, cj: j, dir, stairs, score });
+      }
     }
-    if (!pool.length) continue;
-    const pick = pool[((circ.seed % pool.length) + pool.length) % pool.length];
+    if (!cands.length) continue;
+    cands.sort((a, b) =>
+      b.score - a.score || a.ci - b.ci || a.cj - b.cj || DIR_ORDER.indexOf(a.dir) - DIR_ORDER.indexOf(b.dir)
+    );
+    const pick = cands[((circ.seed % cands.length) + cands.length) % cands.length];
     for (const st of pick.stairs) tryEmit(st);
   }
   return out;

@@ -100,9 +100,11 @@ export const Scene = forwardRef<THREE.Group>(function Scene(_props, exportRef) {
         followCamera={false}
       />
 
-      {/* Active drawing grid — accent colour, floating at the active level so it's
-          clear which height you're building on. Hidden on the ground floor. */}
-      {activeLevel > 0 && (
+      {/* Active drawing grid — accent colour, floating at the active level so it's clear
+          which height you're building on. Only a DRAWING aid: hidden on the ground floor,
+          and hidden in select mode (where it just clutters picking — selection is per-object,
+          not per-level). The faint ground baseline grid above stays as a reference. */}
+      {activeLevel > 0 && tool !== 'select' && (
         <Grid
           position={[0, gridY + 0.02, 0]}
           args={[200, 200]}
