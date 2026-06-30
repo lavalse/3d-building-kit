@@ -188,51 +188,68 @@ const TANGENTS: Record<Dir, [Dir, Dir]> = {
 
 const ALL_DIRS: Dir[] = ['N', 'E', 'S', 'W'];
 
-/** Expand a drawn outdoor PLATFORM ("F,pi,pj") into a wall-parallel stair that
- *  auto-descends to the ground. The platform IS the top landing (drawn by the user,
- *  in front of a door). The run is rotated 90° to hug the wall: it leaves the platform
- *  along a clear tangent (perpendicular to the adjacent building) and steps down,
- *  continuous, to the ground — staying entirely OUTSIDE the footprint (never crossing
- *  a wall, no central well). Returns the descending flights; empty (platform only) if
- *  on the ground or boxed in. */
-export function expandPlatform(cells: CellMap, platformKey: string): { stairs: Stair[] } {
+/** Expand a drawn outdoor PLATFORM ("F,pi,pj") into a stair that descends one floor.
+ *  The platform IS the landing (drawn by the user, in front of a door); the stair
+ *  always stays OUTSIDE the footprint (never crosses a wall).
+ *
+ *  Platforms chain into ONE system, and the USER's placement decides the shape:
+ *  if another platform sits one floor DOWN and exactly 2 cells away in some cardinal
+ *  direction, this platform runs a SINGLE flight toward IT (the stair breaks at each
+ *  platform; that platform carries on). Place the next platform to the LEFT vs RIGHT
+ *  to fold back (switchback) vs go straight. If there is NO platform below, it falls
+ *  back to a straight wall-parallel descent all the way to the ground (the "not enough
+ *  platforms yet" state — may extend out). One flight spans 2 cells (model depth = 4 =
+ *  2 cells), so the next platform must be exactly 2 cells over with 1 cell between. */
+export function expandPlatform(
+  cells: CellMap,
+  platformKey: string,
+  platformKeys: Set<string> = new Set()
+): { stairs: Stair[] } {
   const { 0: F, 1: pi, 2: pj } = platformKey.split(',').map(Number);
   const g = levelRange(cells)[0];
-  const flights = F - g;
-  if (flights <= 0) return { stairs: [] }; // ground-level platform → no descent
+  if (F - g <= 0) return { stairs: [] }; // ground-level platform → no descent
+  const id = platformStairId(platformKey);
+  const clear = (ci: number, cj: number, lo: number, hiL: number) => {
+    for (let L = lo; L <= hiL; L++) if (occupied(cells, L, ci, cj)) return false;
+    return true;
+  };
 
-  // Which side is the building? (so the run goes ALONG it, not into it.)
+  // (1) CHAIN: the flight model fills 2 cells (both sloped — neither is flat), so the
+  // next platform must sit BEYOND the flight, one floor down + exactly 3 cells away in
+  // a cardinal direction. Layout along d:  platform[F](0) · flight-high(1) · flight-low(2)
+  // · platform[F-1](3). The single flight occupies cells 1 & 2; the platform is the flat
+  // landing at cell 3 (so you actually step off onto it, not under the stairs). Direction
+  // follows the user's placement (left/right) → switchback or straight, their choice.
+  for (const d of ALL_DIRS) {
+    const [dx, dy] = STEP[d];
+    const px = pi + 3 * dx, py = pj + 3 * dy; // next platform (flat landing, beyond the flight)
+    if (!platformKeys.has(`${F - 1},${px},${py}`)) continue;
+    // The 2 flight cells (offsets 1 & 2) must stay outside the building, at both levels.
+    if (!clear(pi + dx, pj + dy, F - 1, F)) continue; // high end (offset 1, floor F)
+    if (!clear(pi + 2 * dx, pj + 2 * dy, F - 1, F)) continue; // low end (offset 2, floor F-1)
+    return { stairs: [{ id, level: F - 1, ci: pi + 2 * dx, cj: pj + 2 * dy, dir: OPP[d] }] };
+  }
+
+  // (2) No platform below → straight wall-parallel descent to the ground.
   let inward: Dir | null = null;
   for (const dd of ALL_DIRS) {
     const [di, dj] = STEP[dd];
     if (occupied(cells, F, pi + di, pj + dj)) { inward = dd; break; }
   }
-  // Tangents: perpendicular to the building side; if free-standing, any direction.
   const cands = inward ? TANGENTS[inward] : ALL_DIRS;
-  const id = platformStairId(platformKey);
-
+  const flights = F - g;
   for (const ext of cands) {
-    const te = STEP[ext]; // run extends away from the platform along `ext`
-    const dir = OPP[ext]; // each flight climbs back toward the platform
-    const cellN = (n: number): [number, number] => [pi + te[0] * n, pj + te[1] * n];
-    // Flight cells = offsets 1 .. 2·flights (offset 0 is the platform itself);
-    // all must be clear at every spanned level so the run hugs the wall, never crossing it.
-    let clear = true;
-    for (let n = 1; n <= 2 * flights && clear; n++) {
-      const [ci, cj] = cellN(n);
-      for (let L = g; L <= F; L++) if (occupied(cells, L, ci, cj)) { clear = false; break; }
-    }
-    if (!clear) continue;
-
+    const te = STEP[ext];
+    let ok = true;
+    for (let n = 1; n <= 2 * flights && ok; n++) if (!clear(pi + te[0] * n, pj + te[1] * n, g, F)) ok = false;
+    if (!ok) continue;
     const stairs: Stair[] = [];
     for (let k = 0; k < flights; k++) {
-      const L = F - 1 - k; // rises L → L+1; high end at offset 2k+1 (next to platform), low end at 2k+2
-      const [ci, cj] = cellN(2 * k + 2);
-      stairs.push({ id, level: L, ci, cj, dir });
+      stairs.push({ id, level: F - 1 - k, ci: pi + te[0] * (2 * k + 2), cj: pj + te[1] * (2 * k + 2), dir: OPP[ext] });
     }
     return { stairs };
   }
-  return { stairs: [] }; // boxed in on every tangent → just the platform
+  return { stairs: [] }; // boxed in → just the platform
 }
 
 /** The building wall face a platform should turn into a door (so you can step in),

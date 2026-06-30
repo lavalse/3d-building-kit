@@ -202,11 +202,13 @@ export function deriveSkin(
   }
   const stairs = deriveCirculation(cells, { groundDoors }, circulation);
 
-  // Drawn outdoor platforms: each emits its platform tile + an auto stair descending to the ground.
+  // Drawn outdoor platforms: each emits its platform tile + an auto stair that
+  // descends to the next platform below it (chaining into one system) or the ground.
   const landingTiles: string[] = []; // "floor,ci,cj" outdoor platform cells
+  const platformSet = new Set(circulation.platforms);
   for (const pk of circulation.platforms) {
     landingTiles.push(pk); // the platform itself ("F,pi,pj")
-    stairs.push(...expandPlatform(cells, pk).stairs);
+    stairs.push(...expandPlatform(cells, pk, platformSet).stairs);
   }
 
   // Stairwell openings: cut the floor above ONLY for interior stairs (bottom cell
