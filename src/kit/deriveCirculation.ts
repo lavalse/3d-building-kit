@@ -126,9 +126,19 @@ export function deriveCirculation(cells: CellMap, openings: Openings, circ: Circ
   const doorCands: Candidate[] = [];
   for (const f of openings.groundDoors) {
     const [, i, j, d] = f.split(',').map(Number);
-    const dir = OPP[FACE_LETTER[d]];
-    const stairs = coreAt(cells, i, j, dir, lo, hi);
-    if (stairs.length) doorCands.push({ ci: i, cj: j, dir, comp: compOf(i, j), stairs, door: true });
+    const dir = OPP[FACE_LETTER[d]]; // climb inward, away from the door
+    const [di, dj] = STEP[dir];
+    // Foot one cell IN from the door, so you step through the door onto a flat
+    // approach cell (the door cell) before the stairs start — the stairs-open
+    // model has no built-in landing, so without this the first step jams the door.
+    let fi = i + di, fj = j + dj;
+    let stairs = coreAt(cells, fi, fj, dir, lo, hi);
+    if (!stairs.length) {
+      // Building too shallow for an approach cell → fall back to foot at the door.
+      fi = i; fj = j;
+      stairs = coreAt(cells, fi, fj, dir, lo, hi);
+    }
+    if (stairs.length) doorCands.push({ ci: fi, cj: fj, dir, comp: compOf(i, j), stairs, door: true });
   }
   const isPerimeter = (i: number, j: number) =>
     [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([di, dj]) => !occupied(cells, lo, i + di, j + dj));
