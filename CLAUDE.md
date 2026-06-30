@@ -47,7 +47,9 @@ Right-drag = orbit, middle-drag = pan, wheel = zoom (all tools). Left = the acti
 **Exterior stairs** are drawn, not auto: in the **stair tool**, go to the floor with the door, click the empty outdoor cell just outside it → that drops a **landing platform**, and a wall-parallel stair auto-descends from it to the ground (see Skinning rules → Circulation). You control the platform position exactly; the stair falls out of it.
 
 ## Verification
-Prefer **logic tests** (bundle a `kit/*.ts` with `npx esbuild --bundle` and assert piece counts/positions in node) over screenshots — much cheaper. Only screenshot when geometry/orientation is genuinely in doubt. A headless harness exists (Playwright + chromium swiftshader, store exposed on `window.useBuildStore` in dev). See `[[reference-playwright-harness]]` memory. Always `npm run build` before finishing.
+**Logic tests are the default** (bundle a `kit/*.ts` with `npx esbuild --bundle` and assert piece counts/positions in node) — cheap and deterministic. **Screenshots are the single most expensive step (image tokens); take at most one, and only when geometry/orientation genuinely can't be confirmed from logic.** A headless harness exists (Playwright + chromium swiftshader, store exposed on `window.useBuildStore` in dev). See `[[reference-playwright-harness]]` memory. Always `npm run build` before finishing.
+
+**Working cadence (cost):** do **one feature per session** — context grows fast and every turn re-reads it, so a fresh session per feature keeps each turn cheap (lean on this CLAUDE.md + memory to get back up to speed). See `[[feedback-verification-cost]]`.
 
 ## Gotchas
 - three 0.180 OrbitControls dolly methods are private (`_dollyIn`); the nav zoom in `Scene`'s `CameraBridge` scales `camera.position` instead.
