@@ -119,9 +119,9 @@ export default function App() {
   if (error) {
     return (
       <div className="loading">
-        无法加载素材清单：{error}
+        アセット一覧を読み込めません:{error}
         <br />
-        请先运行 <code>node scripts/build-kit.mjs</code>
+        先に <code>node scripts/build-kit.mjs</code> を実行してください
       </div>
     );
   }
@@ -131,7 +131,7 @@ export default function App() {
       <Toolbar onExport={handleExport} />
       <div className="main">
         <div className="canvas-wrap">
-          {pieces ? <Scene ref={exportRef} /> : <div className="loading">加载素材中…</div>}
+          {pieces ? <Scene ref={exportRef} /> : <div className="loading">アセットを読み込み中…</div>}
           {pieces && <FloorStrip />}
           {pieces && <NavWidget />}
           {pieces && <ToolDock />}
@@ -148,5 +148,5 @@ export default function App() {
 function ModelLoadingBadge() {
   const { active, progress } = useProgress();
   if (!active) return null;
-  return <div className="model-loading">加载模型 {Math.round(progress)}%</div>;
+  return <div className="model-loading">モデル読み込み {Math.round(progress)}%</div>;
 }

@@ -12,7 +12,7 @@ export function PalettePanel({ onClose }: { onClose: () => void }) {
     <div className="palette-panel" style={panel}>
       <div style={head}>
         <span>配色</span>
-        <button style={x} onClick={onClose} title="关闭">×</button>
+        <button style={x} onClick={onClose} title="閉じる">×</button>
       </div>
       {PALETTE_CATS.map((c) => (
         <label key={c.id} style={row}>
@@ -25,7 +25,7 @@ export function PalettePanel({ onClose }: { onClose: () => void }) {
           />
         </label>
       ))}
-      <button style={reset} onClick={resetPalette}>重置为默认</button>
+      <button style={reset} onClick={resetPalette}>デフォルトに戻す</button>
     </div>
   );
 }

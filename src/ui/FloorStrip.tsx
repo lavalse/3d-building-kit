@@ -25,8 +25,8 @@ export function FloorStrip() {
   };
 
   return (
-    <div className="floorstrip" onWheel={onWheel} title="楼层：点击切换 · 滚轮上下 · [ ] 键">
-      <button className="floor-add" onClick={() => setActiveLevel(top + 1)} title="去上面一层">
+    <div className="floorstrip" onWheel={onWheel} title="階:クリックで切替 · ホイールで上下 · [ ] キー">
+      <button className="floor-add" onClick={() => setActiveLevel(top + 1)} title="一つ上の階へ">
         ＋
       </button>
       {levels.map((l) => (

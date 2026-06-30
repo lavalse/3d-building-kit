@@ -6,9 +6,9 @@ export function NavWidget() {
   const camera = useBuildStore((s) => s.camera);
   return (
     <div className="navwidget">
-      <button onClick={() => camera.zoomIn?.()} title="放大">＋</button>
-      <button onClick={() => camera.zoomOut?.()} title="缩小">－</button>
-      <button onClick={() => camera.home?.()} title="回到主视角">⌂</button>
+      <button onClick={() => camera.zoomIn?.()} title="ズームイン">＋</button>
+      <button onClick={() => camera.zoomOut?.()} title="ズームアウト">－</button>
+      <button onClick={() => camera.home?.()} title="初期視点に戻す">⌂</button>
     </div>
   );
 }

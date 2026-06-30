@@ -35,29 +35,29 @@ export function Toolbar({ onExport }: { onExport: () => void }) {
 
   return (
     <div className="topbar">
-      <div className="brand">🏠 3D 建筑套件</div>
+      <div className="brand">🏠 3D 建築キット</div>
 
       <div className="spacer" />
 
       <div className="group">
-        <button className={abstractView ? 'active' : ''} onClick={toggleAbstract} title="切换 体块 / 成品 视图">
-          {abstractView ? '体块' : '成品'}
+        <button className={abstractView ? 'active' : ''} onClick={toggleAbstract} title="表示切替:ブロック / 完成">
+          {abstractView ? 'ブロック' : '完成'}
         </button>
       </div>
       <div className="group">
-        <button onClick={undo} disabled={!canUndo} title="撤销 (Ctrl+Z)">↶</button>
-        <button onClick={redo} disabled={!canRedo} title="重做 (Ctrl+Y)">↷</button>
+        <button onClick={undo} disabled={!canUndo} title="元に戻す (Ctrl+Z)">↶</button>
+        <button onClick={redo} disabled={!canRedo} title="やり直し (Ctrl+Y)">↷</button>
       </div>
       <div className="group">
-        <button className={showPalette ? 'active' : ''} onClick={() => setShowPalette((v) => !v)} title="按大类统一配色">🎨 配色</button>
+        <button className={showPalette ? 'active' : ''} onClick={() => setShowPalette((v) => !v)} title="パーツごとに配色">🎨 配色</button>
       </div>
       <div className="group">
-        <button onClick={saveProject} title="导出工程 JSON">保存</button>
-        <button onClick={() => fileRef.current?.click()} title="导入工程 JSON">读取</button>
+        <button onClick={saveProject} title="プロジェクトを保存 (JSON)">保存</button>
+        <button onClick={() => fileRef.current?.click()} title="プロジェクトを読み込み (JSON)">読込</button>
         <input ref={fileRef} type="file" accept="application/json" hidden onChange={onFile} />
-        <button onClick={() => confirm('清空全部？') && clearAll()}>清空</button>
+        <button onClick={() => confirm('すべて消去しますか？') && clearAll()}>クリア</button>
       </div>
-      <button className="export" onClick={onExport} title="导出整栋建筑为 GLB">⬇ 导出 GLB</button>
+      <button className="export" onClick={onExport} title="建物全体を GLB で書き出し">⬇ GLB 書き出し</button>
       {showPalette && <PalettePanel onClose={() => setShowPalette(false)} />}
     </div>
   );

@@ -2,42 +2,42 @@ import { useBuildStore } from '../store/useBuildStore';
 import type { FaceOverride, RoofStyle, SkinTheme, Tool } from '../kit/types';
 
 const TOOLS: { id: Tool; label: string; icon: string }[] = [
-  { id: 'select', label: '选择', icon: '🖱️' },
-  { id: 'space', label: '画空间', icon: '✏️' },
-  { id: 'stair', label: '楼梯', icon: '🪜' },
-  { id: 'roof', label: '屋顶', icon: '🛖' },
-  { id: 'erase', label: '擦除', icon: '🧽' },
+  { id: 'select', label: '選択', icon: '🖱️' },
+  { id: 'space', label: '空間', icon: '✏️' },
+  { id: 'stair', label: '階段', icon: '🪜' },
+  { id: 'roof', label: '屋根', icon: '🛖' },
+  { id: 'erase', label: '消去', icon: '🧽' },
 ];
 
 // Procedural roof styles for the roof tool / a selected roof.
 const ROOF_STYLES: { id: RoofStyle; label: string; icon: string }[] = [
-  { id: 'gable', label: '双坡', icon: '🔺' },
-  { id: 'hip', label: '四坡', icon: '⛰️' },
-  { id: 'dome', label: '圆顶', icon: '🔵' },
-  { id: 'shed', label: '单坡', icon: '📐' },
+  { id: 'gable', label: '切妻', icon: '🔺' },
+  { id: 'hip', label: '寄棟', icon: '⛰️' },
+  { id: 'dome', label: 'ドーム', icon: '🔵' },
+  { id: 'shed', label: '片流れ', icon: '📐' },
 ];
 
 // Structural/enclosure type of a space (not a building program): full walls →
 // waist-high parapet → bare frame.
 const STYLES: { id: SkinTheme; label: string; icon: string }[] = [
-  { id: 'enclosed', label: '封闭', icon: '🧱' },
-  { id: 'semi', label: '半开放', icon: '🚧' },
-  { id: 'open', label: '开放', icon: '🏛️' },
+  { id: 'enclosed', label: '閉鎖', icon: '🧱' },
+  { id: 'semi', label: '半開放', icon: '🚧' },
+  { id: 'open', label: '開放', icon: '🏛️' },
 ];
 
 // Face actions for the selection (select tool). 'auto' clears the override.
 const FACE_STYLES: { id: FaceOverride | 'auto'; label: string; icon: string }[] = [
-  { id: 'window', label: '窗', icon: '🪟' },
-  { id: 'door', label: '门', icon: '🚪' },
-  { id: 'wall', label: '实墙', icon: '🧱' },
-  { id: 'auto', label: '自动', icon: '↺' },
+  { id: 'window', label: '窓', icon: '🪟' },
+  { id: 'door', label: 'ドア', icon: '🚪' },
+  { id: 'wall', label: '壁', icon: '🧱' },
+  { id: 'auto', label: '自動', icon: '↺' },
 ];
 
 // Swappable stair models for a selected platform tower (all 2-cell, drop-in).
 const STAIR_MODELS: { id: string; label: string; icon: string }[] = [
-  { id: 'stairs-open', label: '开放', icon: '🪜' },
+  { id: 'stairs-open', label: 'オープン', icon: '🪜' },
   { id: 'stairs-center', label: '中柱', icon: '🗼' },
-  { id: 'stairs-closed', label: '实心', icon: '🧱' },
+  { id: 'stairs-closed', label: 'ソリッド', icon: '🧱' },
 ];
 
 /** Bottom-center floating dock (game quick-build style). Tools + a context panel:
@@ -78,21 +78,21 @@ export function ToolDock() {
 
   const hint =
     tool === 'space'
-      ? '拖一个矩形 = 一个空间 · 在已有处重画即可改风格'
+      ? 'ドラッグした矩形 = 1つの空間 · 既存の上に描き直すとスタイル変更'
       : tool === 'stair'
-        ? '上到门所在层 · 在门外侧点一块平台 → 楼梯自动贴墙接到地面 · 室内楼梯自动('
-          + (autoStairs ? '开·换一个' : '关') + ')'
+        ? 'ドアのある階へ · ドアの外側にプラットフォームを置くと階段が壁沿いに地面まで降りる · 室内階段は自動('
+          + (autoStairs ? 'オン・別案' : 'オフ') + ')'
         : tool === 'roof'
-          ? '在建筑顶层(或其上一层)的屋顶范围拖一个矩形 → 生成屋顶 · 右侧选样式(双坡/四坡/圆顶/单坡)'
+          ? '建物の最上階(またはその上の階)で屋根の範囲をドラッグ → 屋根を生成 · 右でスタイル選択(切妻/寄棟/ドーム/片流れ)'
           : tool === 'erase'
-            ? '拖矩形擦掉格子（含其中的楼梯）'
+            ? 'ドラッグした矩形のセルを消去(中の階段も)'
             : selectedStairId
-              ? '已选楼梯 · 删除'
+              ? '階段を選択中 · 削除'
               : selectedRoofId
-                ? '已选屋顶 · 换样式 / 旋转 / 删除'
+                ? '屋根を選択中 · スタイル変更 / 回転 / 削除'
                 : selCount > 0
-                  ? `已选 ${selCount} 面 · 选 窗/门/实墙 · 相邻两块设同款 = 自动变宽`
-                  : '点墙/楼梯/屋顶选中（墙可 Shift 多选）';
+                  ? `${selCount} 面を選択中 · 窓/ドア/壁を選択 · 隣り合う2面を同じにすると自動で横長に`
+                  : '壁/階段/屋根をクリックで選択(壁は Shift で複数選択)';
 
   return (
     <div className="tooldock-wrap">
@@ -138,19 +138,19 @@ export function ToolDock() {
               <button
                 className={'chip' + (autoStairs ? ' active' : '')}
                 onClick={toggleAutoStairs}
-                title="自动布置楼梯（随门/入口）"
+                title="ドア/入口に合わせて階段を自動配置"
               >
                 <span className="dock-icon">🤖</span>
-                <span className="dock-label">自动</span>
+                <span className="dock-label">自動</span>
               </button>
               <button
                 className="chip"
                 onClick={rerollStairs}
                 disabled={!autoStairs}
-                title="换一个自动布置方案"
+                title="別の自動配置にする"
               >
                 <span className="dock-icon">🎲</span>
-                <span className="dock-label">换一个</span>
+                <span className="dock-label">別案</span>
               </button>
             </div>
           </>
@@ -165,7 +165,7 @@ export function ToolDock() {
                   key={r.id}
                   className={'chip' + (activeRoofStyle === r.id ? ' active' : '')}
                   onClick={() => setActiveRoofStyle(r.id)}
-                  title={`屋顶样式：${r.label}`}
+                  title={`屋根スタイル:${r.label}`}
                 >
                   <span className="dock-icon">{r.icon}</span>
                   <span className="dock-label">{r.label}</span>
@@ -184,19 +184,19 @@ export function ToolDock() {
                   key={r.id}
                   className={'chip' + (selRoofStyle === r.id ? ' active' : '')}
                   onClick={() => setRoofStyle(selectedRoofId, r.id)}
-                  title={`屋顶样式：${r.label}`}
+                  title={`屋根スタイル:${r.label}`}
                 >
                   <span className="dock-icon">{r.icon}</span>
                   <span className="dock-label">{r.label}</span>
                 </button>
               ))}
-              <button className="chip" onClick={() => rotateRoof(selectedRoofId)} title="旋转屋脊/坡向(双坡·单坡)">
+              <button className="chip" onClick={() => rotateRoof(selectedRoofId)} title="棟/勾配の向きを回転(切妻・片流れ)">
                 <span className="dock-icon">🔄</span>
-                <span className="dock-label">旋转</span>
+                <span className="dock-label">回転</span>
               </button>
-              <button className="chip" onClick={() => removeRoof(selectedRoofId)} title="删除这个屋顶">
+              <button className="chip" onClick={() => removeRoof(selectedRoofId)} title="この屋根を削除">
                 <span className="dock-icon">🗑️</span>
-                <span className="dock-label">删除</span>
+                <span className="dock-label">削除</span>
               </button>
             </div>
           </>
@@ -213,21 +213,21 @@ export function ToolDock() {
                     key={m.id}
                     className={'chip' + (selModel === m.id ? ' active' : '')}
                     onClick={() => setPlatformModel(platformKey, m.id)}
-                    title={`楼梯样式：${m.label}`}
+                    title={`階段スタイル:${m.label}`}
                   >
                     <span className="dock-icon">{m.icon}</span>
                     <span className="dock-label">{m.label}</span>
                   </button>
                 ))}
               {platformKey && (
-                <button className="chip" onClick={() => rotatePlatformDir(platformKey)} title="旋转下行方向(循环四条边)">
+                <button className="chip" onClick={() => rotatePlatformDir(platformKey)} title="下り方向を回転(4辺を循環)">
                   <span className="dock-icon">🔄</span>
-                  <span className="dock-label">旋转</span>
+                  <span className="dock-label">回転</span>
                 </button>
               )}
-              <button className="chip" onClick={() => removeStair(selectedStairId)} title="删除这部楼梯">
+              <button className="chip" onClick={() => removeStair(selectedStairId)} title="この階段を削除">
                 <span className="dock-icon">🗑️</span>
-                <span className="dock-label">删除</span>
+                <span className="dock-label">削除</span>
               </button>
             </div>
           </>

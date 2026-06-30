@@ -9,16 +9,16 @@ export type PaletteCat =
 
 /** UI order + label + default flat colour (≈ the kit, flat — used when a category isn't set). */
 export const PALETTE_CATS: { id: PaletteCat; label: string; def: string }[] = [
-  { id: 'wall', label: '墙面', def: '#8f96b4' },
-  { id: 'trim', label: '门窗框', def: '#e3e3ef' },
-  { id: 'glass', label: '玻璃', def: '#bcd3f0' },
-  { id: 'door', label: '门', def: '#d65a43' },
-  { id: 'door-metal', label: '门五金', def: '#7a7e88' },
-  { id: 'roof', label: '屋顶', def: '#3b424f' },
-  { id: 'column', label: '柱身', def: '#9aa1c2' },
-  { id: 'column-base', label: '柱础', def: '#dfdfea' },
-  { id: 'floor', label: '地面', def: '#c7cbdc' },
-  { id: 'stair', label: '楼梯', def: '#8a90ad' },
+  { id: 'wall', label: '壁', def: '#8f96b4' },
+  { id: 'trim', label: '窓・ドア枠', def: '#e3e3ef' },
+  { id: 'glass', label: 'ガラス', def: '#bcd3f0' },
+  { id: 'door', label: 'ドア', def: '#d65a43' },
+  { id: 'door-metal', label: 'ドア金物', def: '#7a7e88' },
+  { id: 'roof', label: '屋根', def: '#3b424f' },
+  { id: 'column', label: '柱', def: '#9aa1c2' },
+  { id: 'column-base', label: '柱脚', def: '#dfdfea' },
+  { id: 'floor', label: '床', def: '#c7cbdc' },
+  { id: 'stair', label: '階段', def: '#8a90ad' },
 ];
 
 export const DEFAULT_COLOR: Record<PaletteCat, string> = Object.fromEntries(

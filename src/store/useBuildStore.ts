@@ -548,7 +548,7 @@ export const useBuildStore = create<BuildState>()(
               roofs: Array.isArray(data.roofs) ? data.roofs : [],
             }));
           } catch (e) {
-            alert('无法导入工程：' + e);
+            alert('プロジェクトを読み込めません:' + e);
           }
         },
       };
