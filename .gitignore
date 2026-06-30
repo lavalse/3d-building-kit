@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# session scratch (temp tests/screenshots)
+scratchpad/

@@ -24,13 +24,21 @@ import {
   PIECE_COLUMN,
   PIECE_ROOF_CENTER,
   PIECE_BORDER,
+  PIECE_STAIRS,
   DOOR_LEAF_OFFSET,
+  BAY,
 } from './constants';
-import { occupied, type CellMap } from './massing';
-import type { FaceOverride, Instance, SkinTheme } from './types';
+import { occupied, ownerAt, type CellMap } from './massing';
+import { deriveCirculation, expandPlatform, type Circulation } from './deriveCirculation';
+import type { Dir, FaceOverride, Instance, SkinTheme } from './types';
 
-/** level → theme resolver (per-level styles). */
-export type ThemeAt = (level: number) => SkinTheme;
+/** Per-space style map: spaceId → style. */
+export type StyleBySpace = Record<string, SkinTheme>;
+
+// Stair climb step (cell delta) and the rotation that points its high end that way.
+// MUST-VERIFY rotations on screen (like the roof tables).
+const STAIR_STEP: Record<Dir, [number, number]> = { N: [0, 1], S: [0, -1], E: [1, 0], W: [-1, 0] };
+const STAIR_ROT: Record<Dir, number> = { N: 0, E: ROT_STEP, S: 2 * ROT_STEP, W: 3 * ROT_STEP };
 
 export type PieceSpec = Omit<Instance, 'id'>;
 
@@ -52,23 +60,18 @@ const RUN: Record<number, [number, number]> = {
   [N]: [1, 0],
 };
 
-// A face (level,i,j,dir) is an exterior wall if the cell is occupied and the
-// cell just outside it is empty.
-const faceExterior = (cells: CellMap, level: number, i: number, j: number, dir: number) => {
-  const [di, dj] = DELTA[dir];
-  return occupied(cells, level, i, j) && !occupied(cells, level, i + di, j + dj);
-};
-
+type ColumnMode = 'corner' | 'grid' | 'none';
 interface ThemeRules {
   walls: boolean;
   door: boolean;
-  columns: boolean;
+  columns: ColumnMode;
   roof: boolean;
 }
 const THEMES: Record<SkinTheme, ThemeRules> = {
-  house: { walls: true, door: true, columns: true, roof: true },
-  pavilion: { walls: false, door: false, columns: true, roof: true },
-  open: { walls: false, door: false, columns: false, roof: true },
+  // Load-bearing walls = structure; decorative corner posts at convex corners.
+  enclosed: { walls: true, door: true, columns: 'corner', roof: true },
+  // Post-and-slab frame: a regular column grid (incl. interior) carries the slabs.
+  open: { walls: false, door: false, columns: 'grid', roof: true },
 };
 
 /** Stable 32-bit hash of a face identity. */
@@ -100,39 +103,6 @@ function faceTransform(i: number, j: number, dir: number) {
   }
 }
 
-/** Pick the single main-entrance face (ground level, prefer the south/-Z side). */
-function pickEntrance(cells: CellMap, groundLvl: number): string | null {
-  const ground: { i: number; j: number }[] = [];
-  for (const k of Object.keys(cells)) {
-    const [lvl, i, j] = k.split(',').map(Number);
-    if (lvl === groundLvl) ground.push({ i, j });
-  }
-  if (ground.length === 0) return null;
-  const centroidI = ground.reduce((s, c) => s + c.i, 0) / ground.length;
-
-  type Cand = { i: number; j: number; dir: number; south: boolean };
-  const cands: Cand[] = [];
-  for (const { i, j } of ground) {
-    for (const dir of DIRS) {
-      const [di, dj] = DELTA[dir];
-      if (!occupied(cells, groundLvl, i + di, j + dj)) {
-        cands.push({ i, j, dir, south: dir === S });
-      }
-    }
-  }
-  if (cands.length === 0) return null;
-  cands.sort((a, b) => {
-    if (a.south !== b.south) return a.south ? -1 : 1; // south faces first
-    if (a.j !== b.j) return a.j - b.j; // nearer the front (lower j)
-    const da = Math.abs(a.i - centroidI);
-    const db = Math.abs(b.i - centroidI);
-    if (da !== db) return da - db; // nearer the centre
-    return a.i - b.i;
-  });
-  const e = cands[0];
-  return `${groundLvl},${e.i},${e.j},${e.dir}`; // matches faceKey
-}
-
 const roofCellKey = (level: number, i: number, j: number) => `${level},${i},${j}`;
 
 // A roof cell = occupied here, empty directly above, and not opened to the sky.
@@ -152,13 +122,102 @@ export type RoofOverrides = Record<string, 'open'>;
 export function deriveSkin(
   cells: CellMap,
   groundLvl: number,
-  themeAt: ThemeAt = () => 'house',
+  styleBySpace: StyleBySpace = {},
   faceOverrides: Record<string, FaceOverride> = {},
   roofOverrides: RoofOverrides = {},
-  roofFallbackCenter = false
+  roofFallbackCenter = false,
+  circulation: Circulation = { auto: true, seed: 0, manual: [], suppressed: [], platforms: [] }
 ): PieceSpec[] {
   const out: PieceSpec[] = [];
-  const entrance = THEMES[themeAt(groundLvl)].door ? pickEntrance(cells, groundLvl) : null;
+
+  // Per-cell style comes from the cell's owning space (region), not the level.
+  const styleAt = (level: number, i: number, j: number): SkinTheme | null => {
+    const id = ownerAt(cells, level, i, j);
+    return id ? styleBySpace[id] ?? 'enclosed' : null;
+  };
+  // "enclosed" = the cell's style uses walls. Empty / open-frame cells = false.
+  const enc = (level: number, i: number, j: number): boolean => {
+    const s = styleAt(level, i, j);
+    return s ? THEMES[s].walls : false;
+  };
+  const columnMode = (level: number, i: number, j: number): ColumnMode => {
+    const s = styleAt(level, i, j);
+    return s ? THEMES[s].columns : 'none';
+  };
+  // Corner posts (enclosed) hug convex corners; grid columns (open frame) below.
+  const usesCorner = (level: number, i: number, j: number) => columnMode(level, i, j) === 'corner';
+  const usesGrid = (level: number, i: number, j: number) => columnMode(level, i, j) === 'grid';
+  // A wall sits on a face iff this (enclosed) cell's neighbour is NOT enclosed
+  // (empty or an open region). One-sided emit → automatic dedup; same-enclosure
+  // neighbours merge into one open room.
+  const wallFace = (level: number, i: number, j: number, dir: number): boolean => {
+    if (!enc(level, i, j)) return false;
+    const [di, dj] = DELTA[dir];
+    return !enc(level, i + di, j + dj);
+  };
+
+  // Main entrance: one door on the ground floor's front (−Z) of an enclosed region.
+  const pickEntrance = (): string | null => {
+    type Cand = { i: number; j: number; dir: number; south: boolean };
+    const cands: Cand[] = [];
+    let sumI = 0, nGround = 0;
+    for (const k of Object.keys(cells)) {
+      const { 0: lvl, 1: i } = k.split(',').map(Number);
+      if (lvl === groundLvl) {
+        sumI += i;
+        nGround++;
+      }
+    }
+    if (!nGround) return null;
+    const centroidI = sumI / nGround;
+    for (const k of Object.keys(cells)) {
+      const { 0: lvl, 1: i, 2: j } = k.split(',').map(Number);
+      if (lvl !== groundLvl) continue;
+      for (const dir of DIRS) {
+        if (wallFace(groundLvl, i, j, dir)) cands.push({ i, j, dir, south: dir === S });
+      }
+    }
+    if (!cands.length) return null;
+    cands.sort((a, b) => {
+      if (a.south !== b.south) return a.south ? -1 : 1;
+      if (a.j !== b.j) return a.j - b.j;
+      const da = Math.abs(a.i - centroidI);
+      const db = Math.abs(b.i - centroidI);
+      if (da !== db) return da - db;
+      return a.i - b.i;
+    });
+    const e = cands[0];
+    return `${groundLvl},${e.i},${e.j},${e.dir}`;
+  };
+  const entrance = pickEntrance();
+
+  // Circulation. Ground doors anchor the interior auto-core; face-attached exterior
+  // stair-towers (circulation.attachments) are expanded separately.
+  const groundDoors: string[] = [];
+  if (entrance) groundDoors.push(entrance);
+  for (const fk in faceOverrides) {
+    if (faceOverrides[fk] !== 'door') continue;
+    const { 0: lvl, 1: i, 2: j, 3: d } = fk.split(',').map(Number);
+    if (lvl === groundLvl && fk !== entrance && wallFace(lvl, i, j, d)) groundDoors.push(fk);
+  }
+  const stairs = deriveCirculation(cells, { groundDoors }, circulation);
+
+  // Drawn outdoor platforms: each emits its platform tile + an auto stair descending to the ground.
+  const landingTiles: string[] = []; // "floor,ci,cj" outdoor platform cells
+  for (const pk of circulation.platforms) {
+    landingTiles.push(pk); // the platform itself ("F,pi,pj")
+    stairs.push(...expandPlatform(cells, pk).stairs);
+  }
+
+  // Stairwell openings: cut the floor above ONLY for interior stairs (bottom cell
+  // inside the footprint). Exterior stairs land on the edge → no hole.
+  const floorHoles = new Set<string>();
+  for (const st of stairs) {
+    if (!occupied(cells, st.level, st.ci, st.cj)) continue; // exterior → no stairwell
+    const [di, dj] = STAIR_STEP[st.dir];
+    floorHoles.add(`${st.level + 1},${st.ci},${st.cj}`);
+    floorHoles.add(`${st.level + 1},${st.ci + di},${st.cj + dj}`);
+  }
 
   // Seat the hinged door leaf centered in the opening (offset baked in its pivot).
   // The leaf carries the doorway's faceKey so clicking it cycles that face.
@@ -179,35 +238,37 @@ export function deriveSkin(
 
   for (const key of Object.keys(cells)) {
     const { 0: level, 1: i, 2: j } = key.split(',').map(Number);
-    const rules = THEMES[themeAt(level)];
 
-    // Floor tile for every occupied cell.
-    out.push({ pieceId: PIECE_FLOOR, x: cellCenter(i), z: cellCenter(j), floor: level, rotationY: 0 });
+    // Floor tile for every occupied cell (all styles have a floor), except where
+    // a stair below opens a stairwell through this floor.
+    if (!floorHoles.has(`${level},${i},${j}`)) {
+      out.push({ pieceId: PIECE_FLOOR, x: cellCenter(i), z: cellCenter(j), floor: level, rotationY: 0 });
+    }
 
-    if (rules.walls) {
-      for (const dir of DIRS) {
-        if (!faceExterior(cells, level, i, j, dir)) continue;
-        const faceKey = `${level},${i},${j},${dir}`;
-        const ov = faceOverrides[faceKey];
-        let kind: FaceOverride;
-        if (ov) kind = ov; // explicit window/door/wall — mergeable for window/door
-        else if (entrance && faceKey === entrance) kind = 'door'; // auto entrance, single
-        else kind = faceHash(i, j, level, dir) % 100 < 70 ? 'window' : 'wall'; // auto, single
-        faces.push({ level, i, j, dir, kind, merge: ov === 'window' || ov === 'door' });
-      }
+    // Walls only on faces where this enclosed cell meets a non-enclosed neighbour.
+    for (const dir of DIRS) {
+      if (!wallFace(level, i, j, dir)) continue;
+      const faceKey = `${level},${i},${j},${dir}`;
+      const ov = faceOverrides[faceKey];
+      let kind: FaceOverride;
+      if (ov) kind = ov; // explicit window/door/wall — mergeable for window/door
+      else if (entrance && faceKey === entrance) kind = 'door'; // auto entrance, single
+      else kind = faceHash(i, j, level, dir) % 100 < 70 ? 'window' : 'wall'; // auto, single
+      faces.push({ level, i, j, dir, kind, merge: ov === 'window' || ov === 'door' });
     }
 
     // Roof: one flat tile per roof cell → continuous flat roof for any shape.
-    if (rules.roof && isRoof(cells, roofOverrides, level, i, j)) {
+    if (isRoof(cells, roofOverrides, level, i, j)) {
       out.push({
         pieceId: PIECE_ROOF_CENTER,
         x: cellCenter(i),
         z: cellCenter(j),
         floor: level,
-        yOffset: WALL_HEIGHT,
+        yOffset: WALL_HEIGHT + 0.002, // lift a hair off the wall-top plane (anti z-fight)
         rotationY: 0,
       });
       // Low rail along the outer boundary only (skip if fallback = plain flat).
+      // Sits ON TOP of the roof tile (not coplanar with it) to avoid z-fighting.
       if (!roofFallbackCenter) {
         for (const dir of DIRS) {
           if (!roofEdgeExposed(cells, roofOverrides, level, i, j, dir)) continue;
@@ -217,7 +278,7 @@ export function deriveSkin(
             x: t.x,
             z: t.z,
             floor: level,
-            yOffset: WALL_HEIGHT,
+            yOffset: WALL_HEIGHT + 0.1, // roof tile is 0.1 thick → rail rests on its top
             rotationY: t.rotationY,
           });
         }
@@ -279,29 +340,80 @@ export function deriveSkin(
     }
   }
 
-  // Corner columns at convex posts — per level, only where that level's theme uses columns.
+  // Columns. A column sits on a grid-line intersection (post). Two structural modes:
+  //  • enclosed (corner posts): a post at the CONVEX corners of the walled region.
+  //  • open (frame): a regular column GRID at BAY spacing (world-aligned) over the
+  //    region, INCLUDING interior posts, UNION the region's convex corners so every
+  //    slab edge/corner is supported. This is the post-and-slab frame.
   {
-    const posts = new Set<string>();
+    type Mode = (level: number, i: number, j: number) => boolean;
+    // Convex-corner posts of whichever cells `pred` selects (the old logic).
+    const convexPosts = (pred: Mode): Set<string> => {
+      const posts = new Set<string>();
+      const candidates = new Set<string>();
+      for (const key of Object.keys(cells)) {
+        const { 0: level, 1: i, 2: j } = key.split(',').map(Number);
+        if (!pred(level, i, j)) continue;
+        candidates.add(`${level},${i},${j}`);
+        candidates.add(`${level},${i + 1},${j}`);
+        candidates.add(`${level},${i},${j + 1}`);
+        candidates.add(`${level},${i + 1},${j + 1}`);
+      }
+      for (const p of candidates) {
+        const { 0: level, 1: pi, 2: pj } = p.split(',').map(Number);
+        const a = pred(level, pi - 1, pj - 1);
+        const b = pred(level, pi, pj - 1);
+        const c = pred(level, pi - 1, pj);
+        const d = pred(level, pi, pj);
+        const n = (a ? 1 : 0) + (b ? 1 : 0) + (c ? 1 : 0) + (d ? 1 : 0);
+        const diagonal = (a && d && !b && !c) || (b && c && !a && !d);
+        if (n === 1 || n === 3 || (n === 2 && diagonal)) posts.add(p);
+      }
+      return posts;
+    };
+
+    const colPosts = new Set<string>();
+    // Enclosed: corner posts only.
+    for (const p of convexPosts(usesCorner)) colPosts.add(p);
+    // Open frame: convex corners (edges/corners supported) ∪ interior BAY grid.
+    for (const p of convexPosts(usesGrid)) colPosts.add(p);
     for (const key of Object.keys(cells)) {
       const { 0: level, 1: i, 2: j } = key.split(',').map(Number);
-      posts.add(`${level},${i},${j}`);
-      posts.add(`${level},${i + 1},${j}`);
-      posts.add(`${level},${i},${j + 1}`);
-      posts.add(`${level},${i + 1},${j + 1}`);
-    }
-    for (const p of posts) {
-      const { 0: level, 1: pi, 2: pj } = p.split(',').map(Number);
-      if (!THEMES[themeAt(level)].columns) continue;
-      const a = occupied(cells, level, pi - 1, pj - 1);
-      const b = occupied(cells, level, pi, pj - 1);
-      const c = occupied(cells, level, pi - 1, pj);
-      const d = occupied(cells, level, pi, pj);
-      const n = (a ? 1 : 0) + (b ? 1 : 0) + (c ? 1 : 0) + (d ? 1 : 0);
-      const diagonal = (a && d && !b && !c) || (b && c && !a && !d);
-      if (n === 1 || n === 3 || (n === 2 && diagonal)) {
-        out.push({ pieceId: PIECE_COLUMN, x: line(pi), z: line(pj), floor: level, rotationY: 0 });
+      if (!usesGrid(level, i, j)) continue;
+      // Any of this cell's 4 corner intersections that land on the BAY grid get a post.
+      for (const [pi, pj] of [
+        [i, j],
+        [i + 1, j],
+        [i, j + 1],
+        [i + 1, j + 1],
+      ]) {
+        if (pi % BAY === 0 && pj % BAY === 0) colPosts.add(`${level},${pi},${pj}`);
       }
     }
+    for (const p of colPosts) {
+      const { 0: level, 1: pi, 2: pj } = p.split(',').map(Number);
+      out.push({ pieceId: PIECE_COLUMN, x: line(pi), z: line(pj), floor: level, rotationY: 0 });
+    }
+  }
+
+  // Exterior-tower landing platforms (outdoor floor tiles at the flight junctions).
+  for (const lt of landingTiles) {
+    const { 0: level, 1: i, 2: j } = lt.split(',').map(Number);
+    out.push({ pieceId: PIECE_FLOOR, x: cellCenter(i), z: cellCenter(j), floor: level, rotationY: 0 });
+  }
+
+  // Stairs (circulation layer): one flight per stair, rising level → level+1,
+  // centered on its 2-cell run, high end pointing along `dir`.
+  for (const st of stairs) {
+    const [di, dj] = STAIR_STEP[st.dir];
+    out.push({
+      pieceId: PIECE_STAIRS,
+      x: (cellCenter(st.ci) + cellCenter(st.ci + di)) / 2,
+      z: (cellCenter(st.cj) + cellCenter(st.cj + dj)) / 2,
+      floor: st.level,
+      rotationY: STAIR_ROT[st.dir],
+      stairKey: st.id,
+    });
   }
 
   return out;

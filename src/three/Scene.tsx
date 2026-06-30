@@ -7,6 +7,7 @@ import { GRID } from '../kit/constants';
 import { GroundPlane } from './GroundPlane';
 import { PlacedPieces } from './PlacedPieces';
 import { AbstractView } from './AbstractView';
+import { SelectionOverlay } from './SelectionOverlay';
 
 /** Bridges the on-screen NavWidget buttons to the live OrbitControls.
  *  Zoom uses only stable public state (camera.position + controls.target),
@@ -55,7 +56,7 @@ export const Scene = forwardRef<THREE.Group>(function Scene(_props, exportRef) {
   return (
     <Canvas
       shadows
-      camera={{ position: [18, 16, 18], fov: 45, near: 0.1, far: 1000 }}
+      camera={{ position: [18, 16, 18], fov: 45, near: 0.5, far: 400 }}
       style={{ cursor: tool === 'select' ? 'default' : 'crosshair' }}
       onPointerMissed={() => useBuildStore.getState().clearSelection()}
     >
@@ -77,14 +78,14 @@ export const Scene = forwardRef<THREE.Group>(function Scene(_props, exportRef) {
       {/* Fixed ground — a constant reference + catches the building's shadow.
           Sits just below the floor tiles and uses polygonOffset so the grid drawn
           on top of it never z-fights (CAD-style "ground carries the grid"). */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.06, 0]} receiveShadow>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]} receiveShadow>
         <planeGeometry args={[600, 600]} />
         <meshStandardMaterial color="#c4cedd" polygonOffset polygonOffsetFactor={2} polygonOffsetUnits={2} />
       </mesh>
 
-      {/* Ground grid (always at y≈0, faint) — the world baseline. */}
+      {/* Ground grid (always at y=0, faint) — the world baseline. */}
       <Grid
-        position={[0, -0.04, 0]}
+        position={[0, 0, 0]}
         args={[200, 200]}
         cellSize={GRID}
         cellThickness={0.6}
@@ -124,6 +125,9 @@ export const Scene = forwardRef<THREE.Group>(function Scene(_props, exportRef) {
         <PlacedPieces />
       </group>
       {abstractView && <AbstractView />}
+
+      {/* Selection/hover highlight — OUTSIDE the export group so it never goes into the GLB. */}
+      {!abstractView && <SelectionOverlay />}
 
       <OrbitControls
         makeDefault

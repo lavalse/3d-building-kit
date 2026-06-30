@@ -15,6 +15,7 @@ export const DEFAULT_FLOOR_HEIGHT = 2.4; // vertical spacing between levels (edi
 export const ROT_STEP = Math.PI / 2; // rotation snaps to 90°
 export const HALF = GRID / 2;
 export const MAX_SPAN = 64; // max cells a single drag rectangle can extend (safety clamp)
+export const BAY = 2; // open-frame column-grid spacing, in cells (2 cells = 4m); tunable
 
 // Piece ids used by the auto-skinner.
 export const PIECE_FLOOR = 'floor';
@@ -28,6 +29,7 @@ export const PIECE_DOOR_LEAF = 'door-rotate-square-a';
 // so shift it back by this much to sit centered in the doorway opening.
 export const DOOR_LEAF_OFFSET = 0.387;
 export const PIECE_COLUMN = 'column';
+export const PIECE_STAIRS = 'stairs-open'; // 1.3×2.5×4 → 2 cells deep, ~1 floor tall
 export const PIECE_ROOF_CENTER = 'roof-flat-center';
 export const PIECE_BORDER = 'border'; // low perimeter rail (parapet) along the roof outline
 

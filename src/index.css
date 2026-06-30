@@ -33,89 +33,164 @@ body,
 }
 
 /* ---- Toolbar ---- */
-.toolbar {
+/* ---- Slim top bar ---- */
+.topbar {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
-  padding: 8px 10px;
+  padding: 7px 12px;
   background: var(--panel);
   border-bottom: 1px solid var(--line);
   z-index: 10;
 }
 
-.toolbar .group {
+.topbar .brand {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.2px;
+}
+
+.topbar .group {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding-right: 8px;
-  border-right: 1px solid var(--line);
 }
 
-.toolbar .group:last-of-type {
-  border-right: none;
-}
-
-.toolbar label {
-  color: var(--muted);
-  font-size: 13px;
-  margin-right: 2px;
-}
-
-.toolbar .spacer {
+.topbar .spacer {
   flex: 1;
-  border: none;
 }
 
-.toolbar button,
-.palette .tabs button {
+.topbar button {
   background: var(--panel-2);
   color: var(--text);
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 7px 11px;
+  padding: 6px 10px;
   font-size: 13px;
   cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
   white-space: nowrap;
 }
 
-.toolbar button:hover {
+.topbar button:hover {
   border-color: var(--accent);
 }
 
-.toolbar button.active {
+.topbar button.active {
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;
 }
 
-.toolbar button:disabled {
+.topbar button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
 
-.toolbar .modes button .icon {
-  font-size: 15px;
-}
-
-.toolbar select,
-.toolbar input {
-  background: var(--panel-2);
-  color: var(--text);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 6px 8px;
-  font-size: 13px;
-}
-
-.toolbar .export {
+.topbar .export {
   background: var(--accent-2);
   border-color: var(--accent-2);
   color: #04211a;
   font-weight: 700;
+}
+
+/* ---- Bottom floating tool dock (game quick-build) ---- */
+.tooldock-wrap {
+  position: absolute;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.dock-hint {
+  font-size: 12px;
+  color: var(--text);
+  background: rgba(24, 35, 58, 0.78);
+  border: 1px solid var(--line);
+  padding: 3px 10px;
+  border-radius: 999px;
+  backdrop-filter: blur(4px);
+  white-space: nowrap;
+}
+
+.tooldock {
+  pointer-events: auto;
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  padding: 8px;
+  background: rgba(18, 23, 38, 0.92);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+}
+
+.tooldock .dock-group {
+  display: flex;
+  gap: 6px;
+}
+
+.tooldock .dock-divider {
+  width: 1px;
+  background: var(--line);
+  margin: 2px 2px;
+}
+
+.tooldock .dock-btn,
+.tooldock .chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 58px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: var(--panel-2);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.tooldock .dock-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.tooldock .dock-label {
+  font-size: 11px;
+}
+
+.tooldock .dock-btn:hover,
+.tooldock .chip:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.tooldock .dock-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.tooldock .chip.active {
+  background: var(--accent-2);
+  border-color: var(--accent-2);
+  color: #04211a;
+}
+
+/* Face-edit chips (select tool) — blue, to distinguish from the green draw styles. */
+.tooldock .chip.face.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
 }
 
 /* ---- Main row ---- */

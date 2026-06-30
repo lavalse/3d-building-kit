@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { Scene } from './three/Scene';
 import { Toolbar } from './ui/Toolbar';
+import { ToolDock } from './ui/ToolDock';
 import { FloorStrip } from './ui/FloorStrip';
 import { NavWidget } from './ui/NavWidget';
 import { exportSceneToGLB } from './three/exportGLB';
@@ -11,8 +12,6 @@ import { useBuildStore } from './store/useBuildStore';
 export default function App() {
   const { pieces, error } = useManifest();
   const setPieces = useBuildStore((s) => s.setPieces);
-  const tool = useBuildStore((s) => s.tool);
-  const setTool = useBuildStore((s) => s.setTool);
   const exportRef = useRef<THREE.Group>(null);
 
   useEffect(() => {
@@ -38,14 +37,31 @@ export default function App() {
         s.redo();
         return;
       }
-      // Arrow keys cycle the selected wall faces' style (select tool).
+      // Delete/Backspace removes the selected stair.
+      if (s.selectedStairId && (e.key === 'Delete' || e.key === 'Backspace')) {
+        e.preventDefault();
+        s.removeStair(s.selectedStairId);
+        return;
+      }
+      // Up/Down = floor navigation (high-frequency); Left/Right = cycle the
+      // selected wall faces' style (select tool).
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        s.stepLevel(1);
+        return;
+      }
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        s.stepLevel(-1);
+        return;
+      }
       if (s.tool === 'select' && s.selectedKeys.length) {
-        if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+        if (e.key === 'ArrowRight') {
           e.preventDefault();
           s.cycleSelection(1);
           return;
         }
-        if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+        if (e.key === 'ArrowLeft') {
           e.preventDefault();
           s.cycleSelection(-1);
           return;
@@ -64,6 +80,9 @@ export default function App() {
           break;
         case 'e':
           s.setTool('erase');
+          break;
+        case 't':
+          s.setTool('stair');
           break;
         case 'tab':
           e.preventDefault();
@@ -103,17 +122,8 @@ export default function App() {
           {pieces ? <Scene ref={exportRef} /> : <div className="loading">加载素材中…</div>}
           {pieces && <FloorStrip />}
           {pieces && <NavWidget />}
-          {pieces && tool !== 'select' && (
-            <div className={'draw-banner' + (tool === 'erase' ? ' erase' : '')}>
-              {tool === 'space' ? '画空间中' : '擦除中'} · 左键拖动{tool === 'space' ? '画' : '擦'} · 右键转视角 ·
-              <button onClick={() => setTool('select')}>完成 (Esc)</button>
-            </div>
-          )}
+          {pieces && <ToolDock />}
         </div>
-      </div>
-      <div className="hint">
-        相机：<b>右键拖</b>转视角 · <b>中键拖</b>平移 · <b>滚轮</b>缩放 · 右下角导航控件（任何工具都一样）｜
-        <b>选择</b>点墙切换 实墙/窗/门 ｜ <b>画空间/擦除</b>左键拖动 ｜ 左侧切楼层 · <b>Tab</b> 体块/成品
       </div>
     </div>
   );

@@ -4,46 +4,40 @@ import { useBuildStore } from '../store/useBuildStore';
 import { useKitModel } from './useKitModel';
 
 /** One materialized piece. In the select tool, clicking a wall face selects it
- *  (Shift = add/remove from a multi-selection); arrow keys then cycle the whole
- *  selection's style. Only selectable pieces carry handlers, so non-selectable
- *  pieces never block clicks or cause hover flicker. */
+ *  (Shift = add/remove). Only selectable pieces carry handlers, so non-selectable
+ *  pieces never block clicks or cause hover flicker. The visual highlight lives in
+ *  SelectionOverlay (outside the export group). */
 export function PieceInstance({ inst, def, y }: { inst: Instance; def: PieceDef; y: number }) {
   const model = useKitModel(def.glb);
   const tool = useBuildStore((s) => s.tool);
   const selectFace = useBuildStore((s) => s.selectFace);
+  const selectStair = useBuildStore((s) => s.selectStair);
   const setHovered = useBuildStore((s) => s.setHovered);
 
-  const key = inst.faceKey ?? null;
-  const selectable = tool === 'select' && key !== null;
-  const hovered = useBuildStore((s) => (selectable ? s.hoveredKey === key : false));
-  const selected = useBuildStore((s) => (key !== null && tool === 'select' ? s.selectedKeys.includes(key) : false));
+  // A piece is pickable in the select tool if it's a wall face or a stair.
+  const faceKey = inst.faceKey ?? null;
+  const stairKey = inst.stairKey ?? null;
+  const hoverKey = faceKey ?? stairKey;
+  const selectable = tool === 'select' && hoverKey !== null;
 
   const handlers = selectable
     ? {
         onClick: (e: ThreeEvent<MouseEvent>) => {
           e.stopPropagation();
-          selectFace(key!, e.shiftKey);
+          if (faceKey !== null) selectFace(faceKey, e.shiftKey);
+          else selectStair(stairKey!);
         },
         onPointerOver: (e: ThreeEvent<PointerEvent>) => {
           e.stopPropagation();
-          setHovered(key);
+          setHovered(hoverKey);
         },
         onPointerOut: () => setHovered(null),
       }
     : {};
 
-  const showBox = selected || hovered;
-  const boxColor = selected ? '#ff9d2f' : '#ffe08a';
-
   return (
     <group position={[inst.x, y, inst.z]} rotation={[0, inst.rotationY, 0]} {...handlers}>
       <primitive object={model} />
-      {showBox && (
-        <mesh position={[0, def.size[1] / 2, 0]} raycast={() => null}>
-          <boxGeometry args={[def.size[0] + 0.12, def.size[1] + 0.12, def.size[2] + 0.12]} />
-          <meshBasicMaterial color={boxColor} wireframe />
-        </mesh>
-      )}
     </group>
   );
 }
