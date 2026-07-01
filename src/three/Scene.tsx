@@ -9,6 +9,8 @@ import { PlacedPieces } from './PlacedPieces';
 import { ProceduralRoofs } from './ProceduralRoofs';
 import { AbstractView } from './AbstractView';
 import { SelectionOverlay } from './SelectionOverlay';
+import { SpaceFieldOverlay } from './SpaceFieldOverlay';
+import { MoveGizmo } from './MoveGizmo';
 
 /** Bridges the on-screen NavWidget buttons to the live OrbitControls.
  *  Zoom uses only stable public state (camera.position + controls.target),
@@ -43,6 +45,8 @@ export const Scene = forwardRef<THREE.Group>(function Scene(_props, exportRef) {
   const abstractView = useBuildStore((s) => s.abstractView);
 
   const tool = useBuildStore((s) => s.tool);
+  const cells = useBuildStore((s) => s.cells);
+  const selectedCols = useBuildStore((s) => s.selectedCols);
   const gridY = activeLevel * floorHeight;
 
   // Fixed Tinkercad/builder convention — SAME in every tool, never swaps:
@@ -104,7 +108,7 @@ export const Scene = forwardRef<THREE.Group>(function Scene(_props, exportRef) {
           which height you're building on. Only a DRAWING aid: hidden on the ground floor,
           and hidden in select mode (where it just clutters picking — selection is per-object,
           not per-level). The faint ground baseline grid above stays as a reference. */}
-      {activeLevel > 0 && tool !== 'select' && (
+      {activeLevel > 0 && tool !== 'select' && tool !== 'move' && (
         <Grid
           position={[0, gridY + 0.02, 0]}
           args={[200, 200]}
@@ -136,6 +140,14 @@ export const Scene = forwardRef<THREE.Group>(function Scene(_props, exportRef) {
 
       {/* Selection/hover highlight — OUTSIDE the export group so it never goes into the GLB. */}
       {!abstractView && <SelectionOverlay />}
+
+      {/* Move tool: barrier-field highlight of the marquee column-selection + its 3D handle. */}
+      {tool === 'move' && selectedCols.length > 0 && (
+        <>
+          <SpaceFieldOverlay cols={selectedCols} />
+          <MoveGizmo cells={cells} cols={selectedCols} floorHeight={floorHeight} />
+        </>
+      )}
 
       <OrbitControls
         makeDefault

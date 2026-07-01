@@ -4,6 +4,7 @@ import type { FaceOverride, RoofStyle, SkinTheme, Tool } from '../kit/types';
 const TOOLS: { id: Tool; label: string; icon: string }[] = [
   { id: 'select', label: '選択', icon: '🖱️' },
   { id: 'space', label: '空間', icon: '✏️' },
+  { id: 'move', label: '分割・移動', icon: '✋' },
   { id: 'stair', label: '階段', icon: '🪜' },
   { id: 'roof', label: '屋根', icon: '🛖' },
   { id: 'erase', label: '消去', icon: '🧽' },
@@ -57,6 +58,8 @@ export function ToolDock() {
   const autoStairs = useBuildStore((s) => s.circulation.auto);
   const rerollStairs = useBuildStore((s) => s.rerollStairs);
   const toggleAutoStairs = useBuildStore((s) => s.toggleAutoStairs);
+  const moveOverwrite = useBuildStore((s) => s.moveOverwrite);
+  const toggleMoveOverwrite = useBuildStore((s) => s.toggleMoveOverwrite);
   const activeRoofStyle = useBuildStore((s) => s.activeRoofStyle);
   const setActiveRoofStyle = useBuildStore((s) => s.setActiveRoofStyle);
   const selectedRoofId = useBuildStore((s) => s.selectedRoofId);
@@ -79,6 +82,9 @@ export function ToolDock() {
   const hint =
     tool === 'space'
       ? 'ドラッグした矩形 = 1つの空間 · 既存の上に描き直すとスタイル変更'
+      : tool === 'move'
+        ? '空き地で矩形ドラッグ=範囲選択 → ハンドル(または矢印キー)で移動 · 建物をドラッグ=1棟まるごと · 半分だけ動かすと自動で2棟に分かれます · '
+          + (moveOverwrite ? '上書きオン=重ねると相手を上書き(能動的に差し込む)' : '重なる位置には置けません(上書きをオンにすると重ねて配置可)')
       : tool === 'stair'
         ? 'ドアのある階へ · ドアの外側にプラットフォームを置くと階段が壁沿いに地面まで降りる · 室内階段は自動('
           + (autoStairs ? 'オン・別案' : 'オフ') + ')'
@@ -111,6 +117,22 @@ export function ToolDock() {
             </button>
           ))}
         </div>
+
+        {tool === 'move' && (
+          <>
+            <div className="dock-divider" />
+            <div className="dock-group">
+              <button
+                className={'chip' + (moveOverwrite ? ' active' : '')}
+                onClick={toggleMoveOverwrite}
+                title="重ねて置いたとき、動かした側で相手を上書きする"
+              >
+                <span className="dock-icon">⧉</span>
+                <span className="dock-label">上書き</span>
+              </button>
+            </div>
+          </>
+        )}
 
         {tool === 'space' && (
           <>

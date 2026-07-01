@@ -116,6 +116,8 @@ interface BuildState {
   selectedKeys: string[];
   selectedStairId: string | null;
   selectedRoofId: string | null;
+  selectedCols: string[]; // "i,j" columns marquee-selected in the move tool (to relocate)
+  moveOverwrite: boolean; // move tool: overlap overwrites the target building instead of blocking
   past: Snapshot[];
   future: Snapshot[];
 
@@ -134,6 +136,7 @@ interface BuildState {
   selectFace: (key: string, additive: boolean) => void;
   selectStair: (id: string) => void;
   selectRoof: (id: string) => void;
+  selectCols: (cols: string[]) => void;
   clearSelection: () => void;
   cycleSelection: (dir: 1 | -1) => void;
   setSelectionStyle: (kind: FaceOverride | 'auto') => void;
@@ -142,6 +145,8 @@ interface BuildState {
   eraseCells: (ai: number, aj: number, bi: number, bj: number) => void;
   addStair: (ci: number, cj: number, dir: Dir) => void;
   addPlatform: (ci: number, cj: number) => void;
+  moveBuilding: (cols: string[], di: number, dj: number) => void;
+  toggleMoveOverwrite: () => void;
   addRoof: (ai: number, aj: number, bi: number, bj: number) => void;
   setRoofStyle: (id: string, style: RoofStyle) => void;
   rotateRoof: (id: string) => void;
@@ -227,6 +232,8 @@ export const useBuildStore = create<BuildState>()(
         selectedKeys: [],
         selectedStairId: null,
         selectedRoofId: null,
+        selectedCols: [],
+        moveOverwrite: false,
         past: [],
         future: [],
 
@@ -266,24 +273,27 @@ export const useBuildStore = create<BuildState>()(
 
         selectFace: (key, additive) =>
           set((s) => {
-            // Selecting a face deselects any stair/roof (the three are mutually exclusive).
-            if (!additive) return { selectedKeys: [key], selectedStairId: null, selectedRoofId: null };
+            // Selecting a face deselects any stair/roof/columns (all mutually exclusive).
+            if (!additive) return { selectedKeys: [key], selectedStairId: null, selectedRoofId: null, selectedCols: [] };
             return {
               selectedStairId: null,
               selectedRoofId: null,
+              selectedCols: [],
               selectedKeys: s.selectedKeys.includes(key)
                 ? s.selectedKeys.filter((k) => k !== key)
                 : [...s.selectedKeys, key],
             };
           }),
-        // Select a single stair (clears any face/roof selection).
-        selectStair: (id) => set({ selectedStairId: id, selectedKeys: [], selectedRoofId: null }),
-        // Select a single roof (clears any face/stair selection).
-        selectRoof: (id) => set({ selectedRoofId: id, selectedKeys: [], selectedStairId: null }),
+        // Select a single stair (clears any face/roof/column selection).
+        selectStair: (id) => set({ selectedStairId: id, selectedKeys: [], selectedRoofId: null, selectedCols: [] }),
+        // Select a single roof (clears any face/stair/column selection).
+        selectRoof: (id) => set({ selectedRoofId: id, selectedKeys: [], selectedStairId: null, selectedCols: [] }),
+        // Marquee-select a set of "i,j" columns to relocate (clears face/stair/roof).
+        selectCols: (cols) => set({ selectedCols: cols, selectedKeys: [], selectedStairId: null, selectedRoofId: null }),
         clearSelection: () =>
           set((s) =>
-            s.selectedKeys.length || s.selectedStairId || s.selectedRoofId
-              ? { selectedKeys: [], selectedStairId: null, selectedRoofId: null }
+            s.selectedKeys.length || s.selectedStairId || s.selectedRoofId || s.selectedCols.length
+              ? { selectedKeys: [], selectedStairId: null, selectedRoofId: null, selectedCols: [] }
               : {}
           ),
         // Cycle the style of every selected face together (as one unit).
@@ -395,6 +405,146 @@ export const useBuildStore = create<BuildState>()(
         // level above it both work (the common "go up one, then roof it" instinct). Clamps to
         // the bounding box of the actual top cells (occupied there, open above); ignored if
         // the rect covers no rooftop on either level.
+        // Translate a whole connected building (all its columns `cols`, every level)
+        // by a grid delta (di,dj). Every cell-keyed truth moves together: cells,
+        // faceOverrides, drawn roofs, manual/suppressed stairs, and the exterior
+        // platform stairs attached to it. Blocked (no-op) if any target cell would
+        // land on a NON-moving occupied cell. Auto interior cores aren't stored →
+        // they re-derive at the new position.
+        moveBuilding: (cols, di, dj) => {
+          if ((di === 0 && dj === 0) || cols.length === 0) return;
+          const colSet = new Set(cols);
+          const inCols = (i: number, j: number) => colSet.has(`${i},${j}`);
+          const overwrite = get().moveOverwrite;
+          const before = get().cells;
+          // Cells the movers will land on that are currently occupied by a different
+          // (non-moving) column — the overwritten set.
+          const movedTargets = new Set<string>();
+          let overlaps = false;
+          for (const k in before) {
+            const [lvl, i, j] = k.split(',').map(Number);
+            if (!inCols(i, j)) continue;
+            const tk = `${lvl},${i + di},${j + dj}`;
+            if (before[tk] && !inCols(i + di, j + dj)) { overlaps = true; movedTargets.add(tk); }
+          }
+          // Default: overlap is blocked → true no-op (no undo snapshot). With the
+          // overwrite toggle on, the mover wins and buries the target instead.
+          if (overlaps && !overwrite) return;
+          commit((s) => {
+            // cells — write non-moving first, then movers (so a mover overwrites any
+            // non-moving cell at its target; in block mode there are no collisions).
+            const cells: typeof s.cells = {};
+            for (const k in s.cells) {
+              const [, i, j] = k.split(',').map(Number);
+              if (!inCols(i, j)) cells[k] = s.cells[k];
+            }
+            for (const k in s.cells) {
+              const [lvl, i, j] = k.split(',').map(Number);
+              if (inCols(i, j)) cells[`${lvl},${i + di},${j + dj}`] = s.cells[k];
+            }
+            // faceOverrides ("level,ci,cj,dir"): non-moving first (skip those on a cell
+            // the mover overwrote — their owner changed), then movers.
+            const faceOverrides: typeof s.faceOverrides = {};
+            for (const k in s.faceOverrides) {
+              const [lvl, i, j] = k.split(',');
+              if (inCols(+i, +j)) continue;
+              if (movedTargets.has(`${lvl},${i},${j}`)) continue; // cell overwritten by a mover
+              faceOverrides[k] = s.faceOverrides[k];
+            }
+            for (const k in s.faceOverrides) {
+              const [lvl, i, j, dir] = k.split(',');
+              if (inCols(+i, +j)) faceOverrides[`${lvl},${+i + di},${+j + dj},${dir}`] = s.faceOverrides[k];
+            }
+            // roofs — split each roof by which of its cells move vs stay, so cutting a
+            // building in half yields a roof over each half (pruneRoofs cleans up leftovers).
+            const bbox = (cellList: [number, number][]) => {
+              let a = Infinity, b = Infinity, c2 = -Infinity, d2 = -Infinity;
+              for (const [i, j] of cellList) { a = Math.min(a, i); b = Math.min(b, j); c2 = Math.max(c2, i); d2 = Math.max(d2, j); }
+              return { ci0: a, cj0: b, ci1: c2, cj1: d2 };
+            };
+            const roofs = s.roofs.flatMap((r) => {
+              const moved: [number, number][] = [];
+              const stayed: [number, number][] = [];
+              for (let i = Math.min(r.ci0, r.ci1); i <= Math.max(r.ci0, r.ci1); i++)
+                for (let j = Math.min(r.cj0, r.cj1); j <= Math.max(r.cj0, r.cj1); j++)
+                  (inCols(i, j) ? moved : stayed).push([i, j]);
+              if (!moved.length) return [r]; // nothing of this roof moves → untouched
+              const out: RoofRegion[] = [];
+              if (moved.length) {
+                const bb = bbox(moved);
+                out.push({ id: uid(), level: r.level, style: r.style, rotated: r.rotated,
+                  ci0: bb.ci0 + di, ci1: bb.ci1 + di, cj0: bb.cj0 + dj, cj1: bb.cj1 + dj });
+              }
+              if (stayed.length) {
+                const bb = bbox(stayed);
+                out.push({ id: uid(), level: r.level, style: r.style, rotated: r.rotated, ...bb });
+              }
+              return out;
+            });
+            // circulation: manual stairs, suppressed auto-ids, exterior platforms.
+            const c = s.circulation;
+            const manual = c.manual.map((st) =>
+              inCols(st.ci, st.cj) ? { ...st, ci: st.ci + di, cj: st.cj + dj } : st
+            );
+            const suppressed = c.suppressed.map((id) => {
+              const m = /^auto:(-?\d+),(-?\d+),(-?\d+),([NESW])$/.exec(id);
+              return m && inCols(+m[2], +m[3])
+                ? `auto:${m[1]},${+m[2] + di},${+m[3] + dj},${m[4]}`
+                : id;
+            });
+            // Which platforms move with the building? Seed = platforms fronting a moved
+            // column (in it or 4-adjacent = a door landing), then BFS along the exterior-
+            // stair CHAIN (a platform links to another one level up/down and exactly 3
+            // cells away in a cardinal), so a whole stair — including its far/floating
+            // landings — follows the building. A chain cut by a partial selection just
+            // splits into two towers (deriveCirculation re-derives each safely).
+            const attached = (i: number, j: number) =>
+              inCols(i, j) ||
+              [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => inCols(i + a, j + b));
+            const platSet = new Set(c.platforms);
+            const parse = (k: string) => k.split(',').map(Number) as [number, number, number];
+            const movePlats = new Set<string>();
+            const queue: string[] = [];
+            for (const k of c.platforms) {
+              const [, pi, pj] = parse(k);
+              if (attached(pi, pj)) { movePlats.add(k); queue.push(k); }
+            }
+            const CHAIN: [number, number, number][] = [
+              [1, 3, 0], [1, -3, 0], [1, 0, 3], [1, 0, -3],
+              [-1, 3, 0], [-1, -3, 0], [-1, 0, 3], [-1, 0, -3],
+            ];
+            while (queue.length) {
+              const [pl, pi, pj] = parse(queue.pop()!);
+              for (const [dl, dx, dy] of CHAIN) {
+                const nb = `${pl + dl},${pi + dx},${pj + dy}`;
+                if (platSet.has(nb) && !movePlats.has(nb)) { movePlats.add(nb); queue.push(nb); }
+              }
+            }
+            const remapPlat = (key: string) => {
+              const [pl, pi, pj] = parse(key);
+              return movePlats.has(key) ? `${pl},${pi + di},${pj + dj}` : key;
+            };
+            const platforms = c.platforms.map(remapPlat);
+            const platformModel: typeof c.platformModel = {};
+            for (const key in c.platformModel) platformModel[remapPlat(key)] = c.platformModel[key];
+            const platformDir: typeof c.platformDir = {};
+            for (const key in c.platformDir) platformDir[remapPlat(key)] = c.platformDir[key];
+            const circulation = { ...c, manual, suppressed, platforms, platformModel, platformDir };
+            return { cells, faceOverrides, roofs, circulation };
+          });
+          // Keep a marquee selection following its columns to the new spot.
+          set((s) =>
+            s.selectedCols.length
+              ? {
+                  selectedCols: s.selectedCols.map((k) => {
+                    const [i, j] = k.split(',').map(Number);
+                    return colSet.has(k) ? `${i + di},${j + dj}` : k;
+                  }),
+                }
+              : {}
+          );
+        },
+        toggleMoveOverwrite: () => set((s) => ({ moveOverwrite: !s.moveOverwrite })),
         addRoof: (ai, aj, bi, bj) => {
           const active = get().activeLevel;
           const style = get().activeRoofStyle;

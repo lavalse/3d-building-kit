@@ -45,6 +45,27 @@ export const ownerAt = (cells: CellMap, level: number, ci: number, cj: number): 
 export const occupied = (cells: CellMap, level: number, ci: number, cj: number): boolean =>
   cellKey(level, ci, cj) in cells;
 
+/** The connected building footprint containing column (ci,cj): a set of "i,j" columns that
+ *  are occupied on ANY level and 4-connected to it. Empty if the column is empty. Used to
+ *  select a whole building unit for moving. */
+export function footprintAt(cells: CellMap, ci: number, cj: number): Set<string> {
+  const cols = new Set<string>(); // "i,j" occupied on any level
+  for (const k in cells) cols.add(k.slice(k.indexOf(',') + 1)); // drop "level," → "ci,cj"
+  const start = `${ci},${cj}`;
+  const out = new Set<string>();
+  if (!cols.has(start)) return out;
+  const queue = [start];
+  out.add(start);
+  while (queue.length) {
+    const [i, j] = queue.pop()!.split(',').map(Number);
+    for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nb = `${i + di},${j + dj}`;
+      if (cols.has(nb) && !out.has(nb)) { out.add(nb); queue.push(nb); }
+    }
+  }
+  return out;
+}
+
 /** Lowest (ground) level among all spaces, or 0 when empty. */
 export function groundLevel(spaces: Space[]): number {
   if (spaces.length === 0) return 0;

@@ -55,6 +55,19 @@ export default function App() {
         s.removeRoof(s.selectedRoofId);
         return;
       }
+      // Move tool with a marquee column-selection: arrow keys nudge it 1 cell
+      // (takes priority over floor nav). Up = north (−Z), Right = +X.
+      if (s.tool === 'move' && s.selectedCols.length) {
+        const nudge: Record<string, [number, number]> = {
+          ArrowRight: [1, 0], ArrowLeft: [-1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1],
+        };
+        const d = nudge[e.key];
+        if (d) {
+          e.preventDefault();
+          s.moveBuilding(s.selectedCols, d[0], d[1]);
+          return;
+        }
+      }
       // Up/Down = floor navigation (high-frequency); Left/Right = cycle the
       // selected wall faces' style (select tool).
       if (e.key === 'ArrowUp') {
@@ -89,6 +102,9 @@ export default function App() {
           break;
         case 's':
           s.setTool('space');
+          break;
+        case 'm':
+          s.setTool('move');
           break;
         case 'e':
           s.setTool('erase');

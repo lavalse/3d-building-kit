@@ -62,7 +62,7 @@ export interface RoofRegion {
   rotated?: boolean; // swap the ridge/slope axis (gable & shed)
 }
 
-export type Tool = 'select' | 'space' | 'erase' | 'stair' | 'roof';
+export type Tool = 'select' | 'space' | 'erase' | 'stair' | 'roof' | 'move';
 
 /** Climb direction of a stair (the direction you ascend toward). */
 export type Dir = 'N' | 'E' | 'S' | 'W';
