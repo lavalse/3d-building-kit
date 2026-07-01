@@ -17,7 +17,9 @@ export function SelectionOverlay() {
   const byId = useMemo(() => new Map(pieces.map((p) => [p.id, p])), [pieces]);
   const selectedSet = useMemo(() => new Set(selectedKeys), [selectedKeys]);
 
-  if (tool !== 'select') return null;
+  // Shown in the select tool (selection + hover) and the stair tool (hover only, to
+  // highlight the wall face a click would snap a landing platform to).
+  if (tool !== 'select' && tool !== 'stair') return null;
 
   return (
     <>

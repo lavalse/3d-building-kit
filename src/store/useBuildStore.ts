@@ -4,6 +4,7 @@ import { WALL_HEIGHT, PIECE_STAIRS_CLOSED } from '../kit/constants';
 import { deriveSkin, type StyleBySpace } from '../kit/deriveSkin';
 import { type Circulation, platformDoorFace, cycleDescentDir } from '../kit/deriveCirculation';
 import { eraseRect, fillRect, groundLevelOfCells, normalizeRect, type CellMap } from '../kit/massing';
+import { surfaceEdgeLanding } from '../kit/pickLevel';
 import type { Dir, FaceOverride, Instance, PieceDef, RoofRegion, RoofStyle, SkinTheme, Stair, Tool } from '../kit/types';
 import type { PaletteCat } from '../kit/palette';
 
@@ -113,6 +114,8 @@ interface BuildState {
   abstractView: boolean;
   camera: CameraOps;
   hoveredKey: string | null;
+  hoverLevel: number | null; // space tool: the surface-resolved draw level under the cursor
+  stairLanding: { ci: number; cj: number; level: number } | null; // stair tool: previewed surface-edge landing
   selectedKeys: string[];
   selectedStairId: string | null;
   selectedRoofId: string | null;
@@ -133,6 +136,7 @@ interface BuildState {
   toggleAbstract: () => void;
   setCamera: (ops: CameraOps) => void;
   setHovered: (key: string | null) => void;
+  setHoverLevel: (level: number | null) => void;
   selectFace: (key: string, additive: boolean) => void;
   selectStair: (id: string) => void;
   selectRoof: (id: string) => void;
@@ -141,13 +145,16 @@ interface BuildState {
   cycleSelection: (dir: 1 | -1) => void;
   setSelectionStyle: (kind: FaceOverride | 'auto') => void;
 
-  fillSpace: (ai: number, aj: number, bi: number, bj: number) => void;
+  fillSpace: (ai: number, aj: number, bi: number, bj: number, level?: number) => void;
   eraseCells: (ai: number, aj: number, bi: number, bj: number) => void;
   addStair: (ci: number, cj: number, dir: Dir) => void;
-  addPlatform: (ci: number, cj: number) => void;
+  addPlatform: (ci: number, cj: number, level?: number) => void;
+  addPlatformAtFace: (faceKey: string) => void;
+  addPlatformAtSurfaceEdge: (surfaceKey: string, hitX: number, hitZ: number) => void;
+  setStairLanding: (l: { ci: number; cj: number; level: number } | null) => void;
   moveBuilding: (cols: string[], di: number, dj: number) => void;
   toggleMoveOverwrite: () => void;
-  addRoof: (ai: number, aj: number, bi: number, bj: number) => void;
+  addRoof: (ai: number, aj: number, bi: number, bj: number, level?: number) => void;
   setRoofStyle: (id: string, style: RoofStyle) => void;
   rotateRoof: (id: string) => void;
   removeRoof: (id: string) => void;
@@ -229,6 +236,8 @@ export const useBuildStore = create<BuildState>()(
         abstractView: false,
         camera: {},
         hoveredKey: null,
+        hoverLevel: null,
+        stairLanding: null,
         selectedKeys: [],
         selectedStairId: null,
         selectedRoofId: null,
@@ -238,7 +247,9 @@ export const useBuildStore = create<BuildState>()(
         future: [],
 
         setPieces: (pieces) => set({ pieces }),
-        setTool: (tool) => set({ tool }),
+        // Clear transient hover/preview state so it never bleeds across tools (e.g. a
+        // stale stair-landing or draw-level preview showing after switching tool).
+        setTool: (tool) => set({ tool, hoveredKey: null, hoverLevel: null, stairLanding: null }),
         setActiveLevel: (n) => set({ activeLevel: Math.max(0, n) }),
         // Arrow-key floor nav. Up can go ONE above the topmost built level (a fresh
         // floor to draw on); never higher (can't stack on empty air), and an empty
@@ -270,6 +281,7 @@ export const useBuildStore = create<BuildState>()(
         toggleAbstract: () => set((s) => ({ abstractView: !s.abstractView })),
         setCamera: (ops) => set({ camera: ops }),
         setHovered: (key) => set((s) => (s.hoveredKey === key ? {} : { hoveredKey: key })),
+        setHoverLevel: (level) => set((s) => (s.hoverLevel === level ? {} : { hoverLevel: level })),
 
         selectFace: (key, additive) =>
           set((s) => {
@@ -326,12 +338,12 @@ export const useBuildStore = create<BuildState>()(
         },
 
         // Draw a rectangle of cells as a new space, stamped with the active style.
-        fillSpace: (ai, aj, bi, bj) => {
-          const level = get().activeLevel;
+        fillSpace: (ai, aj, bi, bj, level) => {
+          const lvl = level ?? get().activeLevel;
           const style = get().activeStyle;
           const id = uid();
           commit((s) => ({
-            cells: fillRect(s.cells, level, ai, aj, bi, bj, id),
+            cells: fillRect(s.cells, lvl, ai, aj, bi, bj, id),
             styleBySpace: { ...s.styleBySpace, [id]: style },
           }));
         },
@@ -383,8 +395,8 @@ export const useBuildStore = create<BuildState>()(
         // Draw an outdoor landing platform at the active level (empty cell only); a
         // stair auto-descends from it to the ground. If it sits against an enclosed
         // wall, open a door on that face so you can step in.
-        addPlatform: (ci, cj) => {
-          const level = get().activeLevel;
+        addPlatform: (ci, cj, lvl) => {
+          const level = lvl ?? get().activeLevel;
           const key = `${level},${ci},${cj}`;
           commit((s) => {
             if (s.cells[key]) return {}; // must be an empty (outdoor) cell
@@ -399,6 +411,28 @@ export const useBuildStore = create<BuildState>()(
             return { faceOverrides, circulation: { ...c, platforms: [...c.platforms, key] } };
           });
         },
+        // Snap a landing platform to an exterior wall FACE (stair tool): the outdoor
+        // cell just outside that face, at that face's level — so you drop a stair on
+        // an upper-floor door without switching floors. dir: W0 E1 S2 N3.
+        addPlatformAtFace: (faceKey) => {
+          const [lvl, ci, cj, dir] = faceKey.split(',').map(Number);
+          const D: Record<number, [number, number]> = { 0: [-1, 0], 1: [1, 0], 2: [0, -1], 3: [0, 1] };
+          const d = D[dir];
+          if (!d) return;
+          get().addPlatform(ci + d[0], cj + d[1], lvl);
+        },
+        // Snap a landing to the nearest exterior edge of a walkable surface (floor/roof)
+        // — lets open/semi platforms and rooftops host a stair (no wall needed).
+        addPlatformAtSurfaceEdge: (surfaceKey, hitX, hitZ) => {
+          const t = surfaceEdgeLanding(get().cells, surfaceKey, hitX, hitZ);
+          if (t) get().addPlatform(t.ci, t.cj, t.level);
+        },
+        setStairLanding: (l) =>
+          set((s) => {
+            const a = s.stairLanding;
+            if (a === l || (a && l && a.ci === l.ci && a.cj === l.cj && a.level === l.level)) return {};
+            return { stairLanding: l };
+          }),
         // Draw a roof over a rectangle of building-top cells, stamped with the active
         // style. Caps the building TOP within the rect: we try the active level first, then
         // the level just below it — so drawing while standing on the rooftop OR on the empty
@@ -545,8 +579,8 @@ export const useBuildStore = create<BuildState>()(
           );
         },
         toggleMoveOverwrite: () => set((s) => ({ moveOverwrite: !s.moveOverwrite })),
-        addRoof: (ai, aj, bi, bj) => {
-          const active = get().activeLevel;
+        addRoof: (ai, aj, bi, bj, level) => {
+          const active = level ?? get().activeLevel;
           const style = get().activeRoofStyle;
           commit((s) => {
             const r = normalizeRect(ai, aj, bi, bj);

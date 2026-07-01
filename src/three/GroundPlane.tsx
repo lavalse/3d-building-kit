@@ -4,11 +4,12 @@ import type { ThreeEvent } from '@react-three/fiber';
 import { useBuildStore } from '../store/useBuildStore';
 import { toCell, MAX_SPAN } from '../kit/constants';
 import { footprintAt } from '../kit/massing';
+import { resolveDrawTarget } from '../kit/pickLevel';
 import { CellPreview } from './CellPreview';
 import { MovePreview, type MoveMode } from './MovePreview';
 import { SpaceFieldOverlay } from './SpaceFieldOverlay';
 
-type Drag = { ai: number; aj: number; bi: number; bj: number };
+type Drag = { ai: number; aj: number; bi: number; bj: number; level: number };
 type Move = { cols: string[]; ci: number; cj: number; di: number; dj: number };
 
 const GRAZE_EPS = 0.08; // skip when the view ray is nearly parallel to the ground
@@ -29,14 +30,17 @@ export function GroundPlane() {
   const eraseCells = useBuildStore((s) => s.eraseCells);
   const addPlatform = useBuildStore((s) => s.addPlatform);
   const addRoof = useBuildStore((s) => s.addRoof);
+  const hoveredKey = useBuildStore((s) => s.hoveredKey);
+  const stairLanding = useBuildStore((s) => s.stairLanding);
   const moveBuilding = useBuildStore((s) => s.moveBuilding);
   const moveOverwrite = useBuildStore((s) => s.moveOverwrite);
   const selectCols = useBuildStore((s) => s.selectCols);
   const clearSelection = useBuildStore((s) => s.clearSelection);
+  const setHoverLevel = useBuildStore((s) => s.setHoverLevel);
 
   const y = activeLevel * floorHeight;
   const [drag, setDrag] = useState<Drag | null>(null);
-  const [hover, setHover] = useState<{ ci: number; cj: number } | null>(null);
+  const [hover, setHover] = useState<{ ci: number; cj: number; level: number } | null>(null);
   const [move, setMove] = useState<Move | null>(null);
   const [marquee, setMarquee] = useState<Drag | null>(null); // move tool: rect selecting columns
   const dragRef = useRef<Drag | null>(null); // mirror for handlers (no stale closure)
@@ -45,15 +49,23 @@ export function GroundPlane() {
   const plane = useRef(new THREE.Plane()).current;
   const hit = useRef(new THREE.Vector3()).current;
   const rect = tool === 'space' || tool === 'erase' || tool === 'roof'; // rectangle (drag) tools
+  const surfaceAware = tool === 'space' || tool === 'roof'; // level picked from the surface under the cursor
   const drawing = rect || tool === 'stair';
 
-  // Resolve the pointer ray to a cell on the active-level plane, or null.
-  const rayCell = (e: ThreeEvent<PointerEvent>): { ci: number; cj: number } | null => {
+  // Resolve the pointer ray to a cell on the horizontal plane at level `lvl`, or null.
+  const rayCellAt = (e: ThreeEvent<PointerEvent>, lvl: number): { ci: number; cj: number } | null => {
     const ray = e.ray;
     if (Math.abs(ray.direction.y) < GRAZE_EPS) return null; // too grazing → ignore
-    plane.set(new THREE.Vector3(0, 1, 0), -y);
+    plane.set(new THREE.Vector3(0, 1, 0), -(lvl * floorHeight));
     if (!ray.intersectPlane(plane, hit)) return null;
     return { ci: toCell(hit.x), cj: toCell(hit.z) };
+  };
+  const rayCell = (e: ThreeEvent<PointerEvent>) => rayCellAt(e, activeLevel);
+
+  // Space tool: the surface-aware draw target (rooftop+1 over a building, else activeLevel).
+  const resolve = (e: ThreeEvent<PointerEvent>) => {
+    const r = e.ray;
+    return resolveDrawTarget(cells, activeLevel, floorHeight, r.origin, r.direction);
   };
 
   const clampSpan = (a: number, b: number) =>
@@ -83,16 +95,25 @@ export function GroundPlane() {
         moveRef.current = m;
         setMove(m);
       } else {
-        const d = { ai: c.ci, aj: c.cj, bi: c.ci, bj: c.cj };
+        const d = { ai: c.ci, aj: c.cj, bi: c.ci, bj: c.cj, level: activeLevel };
         marqueeRef.current = d;
         setMarquee(d);
       }
       return;
     }
     if (!drawing) return;
+    // Space/roof tools: anchor level is the surface under the cursor (rooftop+1 or
+    // ground); other rect tools stay on the active level.
+    let d: Drag | null = null;
+    if (surfaceAware) {
+      const t = resolve(e);
+      if (t) d = { ai: t.ci, aj: t.cj, bi: t.ci, bj: t.cj, level: t.level };
+    } else {
+      d = { ai: c.ci, aj: c.cj, bi: c.ci, bj: c.cj, level: activeLevel };
+    }
+    if (!d) return;
     e.stopPropagation();
     (e.target as Element)?.setPointerCapture?.(e.pointerId);
-    const d = { ai: c.ci, aj: c.cj, bi: c.ci, bj: c.cj };
     dragRef.current = d;
     setDrag(d);
   };
@@ -126,7 +147,7 @@ export function GroundPlane() {
     }
     const cur = dragRef.current;
     if (cur && rect) {
-      const c = rayCell(e);
+      const c = rayCellAt(e, cur.level); // stay on the anchor level for the whole drag
       if (!c) return; // grazing / miss → keep last valid rect
       const bi = clampSpan(cur.ai, c.ci);
       const bj = clampSpan(cur.aj, c.cj);
@@ -138,9 +159,18 @@ export function GroundPlane() {
       return;
     }
     if (!drawing) return;
+    // Hover: space/roof follow the surface (rooftop+1 / ground); others use activeLevel.
+    if (surfaceAware) {
+      const t = resolve(e);
+      if (!t) return;
+      if (!hover || hover.ci !== t.ci || hover.cj !== t.cj || hover.level !== t.level)
+        setHover({ ci: t.ci, cj: t.cj, level: t.level });
+      setHoverLevel(t.level);
+      return;
+    }
     const c = rayCell(e);
     if (!c) return;
-    if (!hover || hover.ci !== c.ci || hover.cj !== c.cj) setHover(c);
+    if (!hover || hover.ci !== c.ci || hover.cj !== c.cj) setHover({ ci: c.ci, cj: c.cj, level: activeLevel });
   };
 
   const finish = (e: ThreeEvent<PointerEvent>) => {
@@ -174,9 +204,9 @@ export function GroundPlane() {
     if (!d) return;
     e.stopPropagation();
     (e.target as Element)?.releasePointerCapture?.(e.pointerId);
-    if (tool === 'space') fillSpace(d.ai, d.aj, d.bi, d.bj);
+    if (tool === 'space') fillSpace(d.ai, d.aj, d.bi, d.bj, d.level);
     else if (tool === 'erase') eraseCells(d.ai, d.aj, d.bi, d.bj);
-    else if (tool === 'roof') addRoof(d.ai, d.aj, d.bi, d.bj); // draw a roof over the rooftop rect
+    else if (tool === 'roof') addRoof(d.ai, d.aj, d.bi, d.bj, d.level); // roof over the rooftop under the cursor
     else addPlatform(d.ai, d.aj); // stair tool: drop a landing platform at the clicked cell
     dragRef.current = null;
     setDrag(null);
@@ -184,6 +214,19 @@ export function GroundPlane() {
 
   // Cell to preview right now (drag start for rect tools, else the hovered cell).
   const cell = drag ? { ci: drag.ai, cj: drag.aj } : hover;
+
+  // Stair tool hovering an exterior wall face → the landing platform that a click would
+  // drop: the outdoor cell just outside that face, at that face's level (dir W0 E1 S2 N3).
+  const facePlatform = (() => {
+    if (tool !== 'stair' || !hoveredKey) return null;
+    const p = hoveredKey.split(',');
+    if (p.length !== 4) return null;
+    const lvl = +p[0], ci = +p[1], cj = +p[2], dir = +p[3];
+    if (![lvl, ci, cj, dir].every(Number.isFinite)) return null;
+    const D = ([[-1, 0], [1, 0], [0, -1], [0, 1]] as const)[dir];
+    if (!D) return null;
+    return { ci: ci + D[0], cj: cj + D[1], level: lvl };
+  })();
 
   // All "i,j" columns inside the current marquee rect (the volume being boxed).
   const marqueeCols: string[] = (() => {
@@ -217,27 +260,41 @@ export function GroundPlane() {
         onPointerDown={onDown}
         onPointerMove={onMove}
         onPointerUp={finish}
-        onPointerLeave={() => setHover(null)}
+        onPointerLeave={() => { setHover(null); setHoverLevel(null); }}
       >
         <planeGeometry args={[4000, 4000]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
       </mesh>
 
-      {/* Space/erase: the dragged (or hovered) rectangle volume. */}
+      {/* Space/erase: the dragged (or hovered) rectangle volume, floating at its level
+          (space tool: the surface-resolved level; erase/roof: the active level). */}
       {rect && (drag || hover) && (
         <CellPreview
           ai={drag ? drag.ai : hover!.ci}
           aj={drag ? drag.aj : hover!.cj}
           bi={drag ? drag.bi : hover!.ci}
           bj={drag ? drag.bj : hover!.cj}
-          y={y}
+          y={(drag ? drag.level : hover!.level) * floorHeight}
           height={floorHeight}
           mode={tool === 'erase' ? 'erase' : 'space'}
         />
       )}
 
-      {/* Stair tool: a flat platform-tile preview at the cell under the cursor. */}
-      {tool === 'stair' && cell && (
+      {/* Stair tool: a flat platform-tile preview. Priority: a walkable-surface edge
+          landing (floor/roof) → a wall-face landing → the empty cell under the cursor. */}
+      {tool === 'stair' && stairLanding && (
+        <CellPreview
+          ai={stairLanding.ci} aj={stairLanding.cj} bi={stairLanding.ci} bj={stairLanding.cj}
+          y={stairLanding.level * floorHeight} height={0.12} mode="space"
+        />
+      )}
+      {tool === 'stair' && !stairLanding && facePlatform && (
+        <CellPreview
+          ai={facePlatform.ci} aj={facePlatform.cj} bi={facePlatform.ci} bj={facePlatform.cj}
+          y={facePlatform.level * floorHeight} height={0.12} mode="space"
+        />
+      )}
+      {tool === 'stair' && !stairLanding && !facePlatform && cell && (
         <CellPreview ai={cell.ci} aj={cell.cj} bi={cell.ci} bj={cell.cj} y={y} height={0.12} mode="space" />
       )}
 

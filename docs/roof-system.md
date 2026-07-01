@@ -60,9 +60,16 @@ on top of the cornice**:
 
 ## 4. Lifecycle — one roof per area, invalidate on build-over
 
-- **Draw** (`addRoof`, roof tool): caps the building top inside the dragged rect, trying the
-  **active level then the level below** (so drawing while on the rooftop OR on the empty level
-  just above both work). Clamps to the bbox of the rect's actual top cells.
+- **Draw** (`addRoof(ai,aj,bi,bj, level?)`, roof tool): caps the building top inside the dragged
+  rect, trying the **active level then the level below** (so drawing while on the rooftop OR on
+  the empty level just above both work). Clamps to the bbox of the rect's actual top cells.
+- **Surface-aware level** (shared with the space tool, `kit/pickLevel.ts` `resolveDrawTarget`):
+  the roof tool no longer needs a manual floor switch — `GroundPlane` resolves the draw level
+  from the surface **under the cursor** (a rooftop → `rooftop+1`, else `activeLevel`), locks it
+  at pointer-down, and passes it as `addRoof`'s `level`. Since `addRoof` then tries
+  `topBox(level) ?? topBox(level-1)`, pointing at a 1-storey roof (resolve → level 1) still caps
+  level 0's top. The floating grid follows the resolved level via `hoverLevel`. The rooftop
+  override is transient (doesn't change `activeLevel`).
 - **One roof per area**: a new roof **replaces** any existing roof it overlaps (same level,
   intersecting rect) — latest-wins, like redrawing a space.
 - **Invalidate** (`pruneRoofs`, runs every `commit`): a roof stays valid only while its rect

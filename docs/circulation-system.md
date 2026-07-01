@@ -66,7 +66,23 @@ A flight is placed centered across its 2-cell run `A=(ci,cj) → B=(ci+di,cj+dj)
 
 **Exterior — drawn platforms, chained by placement** (`expandPlatform`):
 - The user draws **platforms** (flat landings) on the facade grid (`circulation.platforms`);
-  each `addPlatform` also opens a door on the adjacent enclosed wall.
+  each `addPlatform(ci,cj, level?)` also opens a door on the adjacent enclosed wall.
+- **Placing a platform (stair-tool UI)** — three ways, all snap to the right level so you
+  never switch floors (see repo `CLAUDE.md` → interaction for the operational summary):
+  1. **Wall-snap** — click an exterior **wall face** (`faceKey`, enclosed). `addPlatformAtFace`
+     drops the landing in the empty outdoor cell just outside it, at the face's level (dir Δ:
+     W`-1,0` E`1,0` S`0,-1` N`0,1`).
+  2. **Surface-edge snap** — click a walkable **surface edge**: a flat-roof (any style) or an
+     **open/semi floor** (they carry `surfaceKey="landLevel,cellLevel,ci,cj"`; enclosed floors
+     do NOT — you use their wall). `surfaceEdgeLanding` (`kit/pickLevel.ts`, pure) picks the
+     nearest **exterior** edge from the hit point → landing at `landLevel` (roof: cell+1, since
+     you stand on top; floor: same level). Interior cell → null (no stair mid-surface).
+  3. **Empty-ground** — click an empty outdoor cell (`GroundPlane`) → landing at `activeLevel`
+     (for chained/switchback descents).
+  Picking lives on `PieceInstance` (walls/surfaces) + `GroundPlane` (empty ground); a hovered
+  landing previews via `stairLanding`. ⚠️ Pickable pieces MUST consume `onPointerDown`
+  (`stopPropagation`, left button) — else the press falls through to `GroundPlane` behind the
+  piece and a **second platform** lands on the ground behind the wall (see Pitfalls §5).
 - A platform connects to the **next platform** placed **one floor down + exactly 3 cells
   away in a cardinal direction**, via a single flight. Layout along that direction `d`:
 
@@ -124,5 +140,12 @@ A flight is placed centered across its 2-cell run `A=(ci,cj) → B=(ci+di,cj+dj)
 3. Exterior chaining offset is **3** (2 flight cells between platforms), **not 2**.
 4. Connection **direction must follow user placement**, never a hardcoded tangent — that's
    what lets the user choose switchback vs straight.
+5. **R3F event passthrough (placement).** `GroundPlane` places on `onPointerDown`/`onPointerUp`;
+   the wall/surface picks place on `onClick`. A mesh with no `onPointerDown` handler does NOT
+   consume the press, so `pointerdown` reaches the `GroundPlane` *behind* it → clicking a wall
+   ALSO drops a ground platform behind it (1:1). `onClick`'s `stopPropagation` can't stop
+   `pointerdown`. Fix: pickable pieces carry `onPointerDown: (e)=>{ if(e.button===0) e.stopPropagation(); }`.
+6. **Only frame/roof surfaces are pickable for stair-snap**, not enclosed floors — an aimed-at
+   wall would otherwise mis-hit its own floor slab and scatter platforms. Enclosed → wall-snap.
 
 See also: repo `CLAUDE.md` (operational summary) and memory `reference-stair-model`.

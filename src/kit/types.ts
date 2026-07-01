@@ -21,8 +21,8 @@ export interface Instance {
   yOffset?: number; // extra Y within the level (roofs sit at wall-top)
   rotationY: number; // radians, multiple of ROT_STEP
   faceKey?: string; // for pickable exterior wall faces: "level,ci,cj,dir"
-  roofKey?: string; // for pickable roof cells: "level,ci,cj"
   stairKey?: string; // for pickable stair pieces: the Stair id
+  surfaceKey?: string; // for a walkable surface (floor/roof) edge in the stair tool: "landLevel,cellLevel,ci,cj"
 }
 
 /** Abstract spatial unit: a rectangular volume on one level. The persisted truth. */

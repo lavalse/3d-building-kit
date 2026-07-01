@@ -47,7 +47,11 @@ export const Scene = forwardRef<THREE.Group>(function Scene(_props, exportRef) {
   const tool = useBuildStore((s) => s.tool);
   const cells = useBuildStore((s) => s.cells);
   const selectedCols = useBuildStore((s) => s.selectedCols);
-  const gridY = activeLevel * floorHeight;
+  const hoverLevel = useBuildStore((s) => s.hoverLevel);
+  // The space/roof tools draw on the surface under the cursor (rooftop+1 / ground), so
+  // the floating grid follows that resolved level; other tools stay on the active level.
+  const gridLevel = (tool === 'space' || tool === 'roof') && hoverLevel != null ? hoverLevel : activeLevel;
+  const gridY = gridLevel * floorHeight;
 
   // Fixed Tinkercad/builder convention — SAME in every tool, never swaps:
   // left = the active tool (drawing, handled by GroundPlane; disabled for orbit),
@@ -108,7 +112,7 @@ export const Scene = forwardRef<THREE.Group>(function Scene(_props, exportRef) {
           which height you're building on. Only a DRAWING aid: hidden on the ground floor,
           and hidden in select mode (where it just clutters picking — selection is per-object,
           not per-level). The faint ground baseline grid above stays as a reference. */}
-      {activeLevel > 0 && tool !== 'select' && tool !== 'move' && (
+      {gridLevel > 0 && tool !== 'select' && tool !== 'move' && (
         <Grid
           position={[0, gridY + 0.02, 0]}
           args={[200, 200]}

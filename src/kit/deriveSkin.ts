@@ -269,7 +269,15 @@ export function deriveSkin(
     // Floor tile for every occupied cell (all styles have a floor), except where
     // a stair below opens a stairwell through this floor.
     if (!floorHoles.has(`${level},${i},${j}`)) {
-      out.push({ pieceId: PIECE_FLOOR, x: cellCenter(i), z: cellCenter(j), floor: level, rotationY: 0 });
+      // surfaceKey (stair tool): a walkable floor edge you step off at its own level L.
+      // Only for frame styles (open/semi) — an ENCLOSED floor is reached via its wall
+      // (wall-snap), and making it pickable just lets an aimed-at wall mis-hit the floor
+      // and scatter platforms on the ground. Rooftops stay pickable regardless (below).
+      const floorPickable = wallKind(level, i, j) !== 'full';
+      out.push({
+        pieceId: PIECE_FLOOR, x: cellCenter(i), z: cellCenter(j), floor: level, rotationY: 0,
+        ...(floorPickable ? { surfaceKey: `${level},${level},${i},${j}` } : {}),
+      });
     }
 
     // Envelope on faces where this cell's wall is stronger than its neighbour's.
@@ -297,6 +305,8 @@ export function deriveSkin(
         floor: level,
         yOffset: WALL_HEIGHT + 0.002, // lift a hair off the wall-top plane (anti z-fight)
         rotationY: 0,
+        // surfaceKey: the rooftop terrace — you stand on it at level+1 (step off there).
+        surfaceKey: `${level + 1},${level},${i},${j}`,
       });
       // Low rail along the outer boundary only (skip if fallback = plain flat). This is the
       // kit's eave/cornice; drawn pitched roofs KEEP it and sit on top of it.

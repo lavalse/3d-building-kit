@@ -5,6 +5,7 @@ import type { Instance, PieceDef } from '../kit/types';
 import { useBuildStore } from '../store/useBuildStore';
 import { useKitModel } from './useKitModel';
 import { pieceCategory } from '../kit/palette';
+import { surfaceEdgeLanding } from '../kit/pickLevel';
 import { ensurePixels, bakeGeometry, recolorGeometry } from './paletteBake';
 
 /** One materialized piece. In the select tool, clicking a wall face selects it
@@ -17,6 +18,9 @@ export function PieceInstance({ inst, def, y }: { inst: Instance; def: PieceDef;
   const palette = useBuildStore((s) => s.palette);
   const selectFace = useBuildStore((s) => s.selectFace);
   const selectStair = useBuildStore((s) => s.selectStair);
+  const addPlatformAtFace = useBuildStore((s) => s.addPlatformAtFace);
+  const addPlatformAtSurfaceEdge = useBuildStore((s) => s.addPlatformAtSurfaceEdge);
+  const setStairLanding = useBuildStore((s) => s.setStairLanding);
   const setHovered = useBuildStore((s) => s.setHovered);
 
   // Recolour: bake the palette texture into per-vertex semantic categories (once per shared
@@ -48,26 +52,45 @@ export function PieceInstance({ inst, def, y }: { inst: Instance; def: PieceDef;
     });
   }, [model, palette, inst.pieceId]);
 
-  // A piece is pickable in the select tool if it's a wall face or a stair.
+  // Pickable in the select tool (wall face or stair); in the stair tool an exterior
+  // wall face OR a walkable surface (floor/roof) is pickable → snaps a landing platform.
   const faceKey = inst.faceKey ?? null;
   const stairKey = inst.stairKey ?? null;
+  const surfaceKey = inst.surfaceKey ?? null;
   const hoverKey = faceKey ?? stairKey;
   const selectable = tool === 'select' && hoverKey !== null;
+  const stairFacePick = tool === 'stair' && faceKey !== null;
+  const stairSurfacePick = tool === 'stair' && faceKey === null && surfaceKey !== null;
 
-  const handlers = selectable
-    ? {
-        onClick: (e: ThreeEvent<MouseEvent>) => {
-          e.stopPropagation();
-          if (faceKey !== null) selectFace(faceKey, e.shiftKey);
-          else selectStair(stairKey!);
-        },
-        onPointerOver: (e: ThreeEvent<PointerEvent>) => {
-          e.stopPropagation();
-          setHovered(hoverKey);
-        },
-        onPointerOut: () => setHovered(null),
-      }
-    : {};
+  const handlers =
+    selectable || stairFacePick || stairSurfacePick
+      ? {
+          // Consume the left-button press so it doesn't fall through to the GroundPlane
+          // behind this piece. Without this, in the stair tool pressing on a wall/surface
+          // ALSO triggers GroundPlane's pointerdown → a second platform on the ground
+          // behind the wall (onClick's stopPropagation can't stop pointerdown/up).
+          onPointerDown: (e: ThreeEvent<PointerEvent>) => { if (e.button === 0) e.stopPropagation(); },
+          onClick: (e: ThreeEvent<MouseEvent>) => {
+            e.stopPropagation();
+            if (stairSurfacePick) addPlatformAtSurfaceEdge(surfaceKey!, e.point.x, e.point.z);
+            else if (stairFacePick) addPlatformAtFace(faceKey!);
+            else if (faceKey !== null) selectFace(faceKey, e.shiftKey);
+            else selectStair(stairKey!);
+          },
+          onPointerMove: stairSurfacePick
+            ? (e: ThreeEvent<PointerEvent>) => {
+                e.stopPropagation();
+                setStairLanding(surfaceEdgeLanding(useBuildStore.getState().cells, surfaceKey!, e.point.x, e.point.z));
+              }
+            : undefined,
+          onPointerOver: (e: ThreeEvent<PointerEvent>) => {
+            e.stopPropagation();
+            if (stairSurfacePick) setStairLanding(surfaceEdgeLanding(useBuildStore.getState().cells, surfaceKey!, e.point.x, e.point.z));
+            else setHovered(stairFacePick ? faceKey : hoverKey);
+          },
+          onPointerOut: () => { setHovered(null); if (stairSurfacePick) setStairLanding(null); },
+        }
+      : {};
 
   return (
     <group position={[inst.x, y, inst.z]} rotation={[0, inst.rotationY, 0]} {...handlers}>
