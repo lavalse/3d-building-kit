@@ -146,7 +146,7 @@ interface BuildState {
   setSelectionStyle: (kind: FaceOverride | 'auto') => void;
 
   fillSpace: (ai: number, aj: number, bi: number, bj: number, level?: number) => void;
-  eraseCells: (ai: number, aj: number, bi: number, bj: number) => void;
+  eraseCells: (ai: number, aj: number, bi: number, bj: number, level?: number) => void;
   addStair: (ci: number, cj: number, dir: Dir) => void;
   addPlatform: (ci: number, cj: number, level?: number) => void;
   addPlatformAtFace: (faceKey: string) => void;
@@ -350,8 +350,8 @@ export const useBuildStore = create<BuildState>()(
         // Area eraser: wipe everything anchored in the dragged rect on the active level —
         // cells, manual stairs, exterior platform stairs, and drawn roofs. Auto interior
         // stairs re-derive; pruneRoofs (in commit) mops up any roof left orphaned.
-        eraseCells: (ai, aj, bi, bj) => {
-          const level = get().activeLevel;
+        eraseCells: (ai, aj, bi, bj, lvl) => {
+          const level = lvl ?? get().activeLevel;
           const r = normalizeRect(ai, aj, bi, bj);
           const inRect = (lvl: number, ci: number, cj: number) =>
             lvl === level && ci >= r.ci0 && ci <= r.ci1 && cj >= r.cj0 && cj <= r.cj1;

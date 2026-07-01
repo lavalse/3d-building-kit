@@ -48,9 +48,9 @@ export const Scene = forwardRef<THREE.Group>(function Scene(_props, exportRef) {
   const cells = useBuildStore((s) => s.cells);
   const selectedCols = useBuildStore((s) => s.selectedCols);
   const hoverLevel = useBuildStore((s) => s.hoverLevel);
-  // The space/roof tools draw on the surface under the cursor (rooftop+1 / ground), so
+  // The space/roof/erase tools resolve their level from the surface under the cursor, so
   // the floating grid follows that resolved level; other tools stay on the active level.
-  const gridLevel = (tool === 'space' || tool === 'roof') && hoverLevel != null ? hoverLevel : activeLevel;
+  const gridLevel = (tool === 'space' || tool === 'roof' || tool === 'erase') && hoverLevel != null ? hoverLevel : activeLevel;
   const gridY = gridLevel * floorHeight;
 
   // Fixed Tinkercad/builder convention — SAME in every tool, never swaps:

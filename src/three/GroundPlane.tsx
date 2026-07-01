@@ -9,6 +9,9 @@ import { CellPreview } from './CellPreview';
 import { MovePreview, type MoveMode } from './MovePreview';
 import { SpaceFieldOverlay } from './SpaceFieldOverlay';
 
+// `level` = the reference floor resolved from the surface under the cursor (the plane you
+// touch = that floor's base). space/roof act ON it (draw/cap), erase acts on level-1 (the
+// floor below the touched surface) — draw and erase are mirror ops across the same plane.
 type Drag = { ai: number; aj: number; bi: number; bj: number; level: number };
 type Move = { cols: string[]; ci: number; cj: number; di: number; dj: number };
 
@@ -49,7 +52,7 @@ export function GroundPlane() {
   const plane = useRef(new THREE.Plane()).current;
   const hit = useRef(new THREE.Vector3()).current;
   const rect = tool === 'space' || tool === 'erase' || tool === 'roof'; // rectangle (drag) tools
-  const surfaceAware = tool === 'space' || tool === 'roof'; // level picked from the surface under the cursor
+  const surfaceAware = rect; // space/roof/erase all pick their level from the surface under the cursor
   const drawing = rect || tool === 'stair';
 
   // Resolve the pointer ray to a cell on the horizontal plane at level `lvl`, or null.
@@ -62,7 +65,9 @@ export function GroundPlane() {
   };
   const rayCell = (e: ThreeEvent<PointerEvent>) => rayCellAt(e, activeLevel);
 
-  // Space tool: the surface-aware draw target (rooftop+1 over a building, else activeLevel).
+  // Surface-aware reference level for the rect tools (space/roof/erase): the touched
+  // surface = the base of level `R` (rooftop+1 over a building, else activeLevel). space/roof
+  // act on R; erase acts on R-1. All three drag on the R plane (the visible touched surface).
   const resolve = (e: ThreeEvent<PointerEvent>) => {
     const r = e.ray;
     return resolveDrawTarget(cells, activeLevel, floorHeight, r.origin, r.direction);
@@ -102,8 +107,8 @@ export function GroundPlane() {
       return;
     }
     if (!drawing) return;
-    // Space/roof tools: anchor level is the surface under the cursor (rooftop+1 or
-    // ground); other rect tools stay on the active level.
+    // Rect tools (space/roof/erase): reference level from the surface under the cursor.
+    // Stair stays on the active level (empty-ground platform).
     let d: Drag | null = null;
     if (surfaceAware) {
       const t = resolve(e);
@@ -147,7 +152,7 @@ export function GroundPlane() {
     }
     const cur = dragRef.current;
     if (cur && rect) {
-      const c = rayCellAt(e, cur.level); // stay on the anchor level for the whole drag
+      const c = rayCellAt(e, cur.level); // stay on the anchor's surface plane for the whole drag
       if (!c) return; // grazing / miss → keep last valid rect
       const bi = clampSpan(cur.ai, c.ci);
       const bj = clampSpan(cur.aj, c.cj);
@@ -159,7 +164,7 @@ export function GroundPlane() {
       return;
     }
     if (!drawing) return;
-    // Hover: space/roof follow the surface (rooftop+1 / ground); others use activeLevel.
+    // Hover: rect tools follow the surface (space/roof rooftop+1, erase top floor); stair uses activeLevel.
     if (surfaceAware) {
       const t = resolve(e);
       if (!t) return;
@@ -205,7 +210,7 @@ export function GroundPlane() {
     e.stopPropagation();
     (e.target as Element)?.releasePointerCapture?.(e.pointerId);
     if (tool === 'space') fillSpace(d.ai, d.aj, d.bi, d.bj, d.level);
-    else if (tool === 'erase') eraseCells(d.ai, d.aj, d.bi, d.bj);
+    else if (tool === 'erase') eraseCells(d.ai, d.aj, d.bi, d.bj, d.level - 1); // mirror of draw: wipe the floor BELOW the touched surface
     else if (tool === 'roof') addRoof(d.ai, d.aj, d.bi, d.bj, d.level); // roof over the rooftop under the cursor
     else addPlatform(d.ai, d.aj); // stair tool: drop a landing platform at the clicked cell
     dragRef.current = null;
@@ -214,6 +219,15 @@ export function GroundPlane() {
 
   // Cell to preview right now (drag start for rect tools, else the hovered cell).
   const cell = drag ? { ci: drag.ai, cj: drag.aj } : hover;
+
+  // Rect preview: the dragged/hovered rectangle at the resolved surface level R.
+  const pv = drag
+    ? { ai: drag.ai, aj: drag.aj, bi: drag.bi, bj: drag.bj, level: drag.level }
+    : hover
+      ? { ai: hover.ci, aj: hover.cj, bi: hover.ci, bj: hover.cj, level: hover.level }
+      : null;
+  // Erase shows only where a floor actually exists to peel below the touched surface (R-1).
+  const eraseFloorExists = !!(pv && cells[`${pv.level - 1},${pv.ai},${pv.aj}`]);
 
   // Stair tool hovering an exterior wall face → the landing platform that a click would
   // drop: the outdoor cell just outside that face, at that face's level (dir W0 E1 S2 N3).
@@ -266,18 +280,15 @@ export function GroundPlane() {
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
       </mesh>
 
-      {/* Space/erase: the dragged (or hovered) rectangle volume, floating at its level
-          (space tool: the surface-resolved level; erase/roof: the active level). */}
-      {rect && (drag || hover) && (
-        <CellPreview
-          ai={drag ? drag.ai : hover!.ci}
-          aj={drag ? drag.aj : hover!.cj}
-          bi={drag ? drag.bi : hover!.ci}
-          bj={drag ? drag.bj : hover!.cj}
-          y={(drag ? drag.level : hover!.level) * floorHeight}
-          height={floorHeight}
-          mode={tool === 'erase' ? 'erase' : 'space'}
-        />
+      {/* Space/roof: a translucent volume box on the resolved surface level (the new floor
+          sits above the touched rooftop). */}
+      {(tool === 'space' || tool === 'roof') && pv && (
+        <CellPreview ai={pv.ai} aj={pv.aj} bi={pv.bi} bj={pv.bj} y={pv.level * floorHeight} height={floorHeight} mode="space" />
+      )}
+      {/* Erase (mirror of draw): a flat red marker ON the touched surface (visible), marking
+          the floor peeled off below it — shown only where such a floor exists. */}
+      {tool === 'erase' && pv && eraseFloorExists && (
+        <CellPreview ai={pv.ai} aj={pv.aj} bi={pv.bi} bj={pv.bj} y={pv.level * floorHeight} height={0.16} mode="erase" />
       )}
 
       {/* Stair tool: a flat platform-tile preview. Priority: a walkable-surface edge

@@ -1,14 +1,16 @@
-import { useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 import * as THREE from 'three';
+import { Edges } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { GRID, WALL_HEIGHT } from '../kit/constants';
 
 const FIELD_H = WALL_HEIGHT * 8; // "to the sky" — the fade makes the exact top invisible
 
-/** A "barrier"/結界-style volume marking a column selection (move tool): each selected
- *  "i,j" column becomes a light pillar rising from the ground (y=0), fading out toward
- *  the sky, with a slow upward scan band — conveying "you selected a volume of space,
- *  ground to sky," not just the ground floor. Purely visual (non-pickable). */
+/** A "barrier"/結界-style volume marking a column selection (move tool): ONE light box
+ *  over the selection's bounding rectangle, rising from the ground (y=0) and fading toward
+ *  the sky with a slow upward scan band — so it reads as a single framed RANGE (ground to
+ *  sky), not a clutter of per-cell pillars. A crisp outline at the base defines the framed
+ *  grid rectangle. Purely visual (non-pickable). */
 export function SpaceFieldOverlay({ cols, color = '#49c5ff' }: { cols: string[]; color?: string }) {
   const mat = useMemo(
     () =>
@@ -50,23 +52,35 @@ export function SpaceFieldOverlay({ cols, color = '#49c5ff' }: { cols: string[];
     [color]
   );
 
-  const group = useRef<THREE.Group>(null);
   useFrame((_, dt) => {
     mat.uniforms.uTime.value += dt;
   });
 
+  // Bounding rectangle of the selected columns → one framed range (not per-cell).
+  let ci0 = Infinity, cj0 = Infinity, ci1 = -Infinity, cj1 = -Infinity;
+  for (const key of cols) {
+    const [i, j] = key.split(',').map(Number);
+    ci0 = Math.min(ci0, i); cj0 = Math.min(cj0, j); ci1 = Math.max(ci1, i); cj1 = Math.max(cj1, j);
+  }
+  if (!Number.isFinite(ci0)) return null;
+
+  const w = GRID * (ci1 - ci0 + 1);
+  const d = GRID * (cj1 - cj0 + 1);
+  const cx = GRID * ci0 + w / 2;
+  const cz = GRID * cj0 + d / 2;
+
   return (
-    <group ref={group}>
-      {cols.map((key) => {
-        const [i, j] = key.split(',').map(Number);
-        const cx = GRID * i + GRID / 2;
-        const cz = GRID * j + GRID / 2;
-        return (
-          <mesh key={key} position={[cx, FIELD_H / 2, cz]} material={mat} raycast={() => null}>
-            <boxGeometry args={[GRID - 0.06, FIELD_H, GRID - 0.06]} />
-          </mesh>
-        );
-      })}
+    <group>
+      {/* One barrier volume over the whole framed rectangle. */}
+      <mesh position={[cx, FIELD_H / 2, cz]} material={mat} raycast={() => null}>
+        <boxGeometry args={[w - 0.06, FIELD_H, d - 0.06]} />
+      </mesh>
+      {/* Crisp outline at the base → the framed grid rectangle. */}
+      <mesh position={[cx, 0.06, cz]} raycast={() => null}>
+        <boxGeometry args={[w, 0.12, d]} />
+        <meshBasicMaterial color={color} transparent opacity={0.12} depthWrite={false} />
+        <Edges threshold={15} color={color} />
+      </mesh>
     </group>
   );
 }

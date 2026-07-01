@@ -7,6 +7,12 @@ export function FloorStrip() {
   const cells = useBuildStore((s) => s.cells);
   const activeLevel = useBuildStore((s) => s.activeLevel);
   const setActiveLevel = useBuildStore((s) => s.setActiveLevel);
+  const tool = useBuildStore((s) => s.tool);
+  const hoverLevel = useBuildStore((s) => s.hoverLevel);
+
+  // Surface-aware draw target under the cursor (space/roof) — a TRANSIENT hint, distinct
+  // from the manually-selected active level.
+  const targetLevel = (tool === 'space' || tool === 'roof' || tool === 'erase') && hoverLevel != null ? hoverLevel : null;
 
   const used = useMemo(() => {
     const set = new Set<number>();
@@ -15,7 +21,7 @@ export function FloorStrip() {
   }, [cells]);
 
   const maxUsed = used.size ? Math.max(...used) : 0;
-  const top = Math.max(maxUsed, activeLevel); // highest level to show as a button
+  const top = Math.max(maxUsed, activeLevel, targetLevel ?? 0); // also show the target floor's button
   const levels: number[] = [];
   for (let l = top; l >= 0; l--) levels.push(l); // top → bottom for display
 
@@ -35,6 +41,7 @@ export function FloorStrip() {
           className={
             'floor-btn' +
             (l === activeLevel ? ' active' : '') +
+            (l === targetLevel && l !== activeLevel ? ' target' : '') +
             (used.has(l) ? ' filled' : '')
           }
           onClick={() => setActiveLevel(l)}
